@@ -66,7 +66,10 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # 💎 VIP
     elif text == "💎 Coupon VIP":
         if user_id in vip_users:
-            await update.message.reply_text(COUPON_VIP)
+            with open("coupon.txt", "r", encoding="utf-8") as f:
+    coupon = f.read()
+
+await update.message.reply_text(coupon)
         else:
             await update.message.reply_text(
                 "❌ Accès VIP refusé\n\n💳 Abonne-toi pour accéder aux coupons VIP."
