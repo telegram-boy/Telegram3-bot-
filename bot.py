@@ -2,10 +2,10 @@ import asyncio
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
 
-TOKEN = "8641194944:AAEFGeeHS0KVZ2oUuYzWojj88ENl6a5uqtY"
+TOKEN = os.getenv("8641194944:AAEFGeeHS0KVZ2oUuYzWojj88ENl6a5uqtY")
 
 # 👑 LISTE VIP
-vip_users = [5447711661]
+vip_users = []
 
 # 🎫 COUPON GRATUIT
 COUPON_FREE = """
