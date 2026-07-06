@@ -27,18 +27,33 @@ VIP_FILE = "vip.txt"
 COUPON_FREE = """
 🎫 COUPON GRATUIT
 
-⚽ Match exemple
-➡️ +1.5 buts
-📊 Cote : 1.50
+⚽ Matchs Portugal vs Espagne 
+➡️ +0.5 but Portugal 
+📊 Cote : 1.41
+"""
+
+Les meilleurs Côte sont dans les Coupon VIP 🎫
+
+COUPON_VIP = """
+💎 COUPON VIP
+
+⚽ Match BK Hacken vs Djurgarden
+➡️ -3,5 buts 
+📊 Cote : 1.57
 """
 
 COUPON_VIP = """
 💎 COUPON VIP
 
-⚽ Match VIP
-➡️ Victoire équipe A
-📊 Cote : 2.10
+⚽ Match Portugal vs Espagne 
+➡️ VN 1ère/MT
+📊 Cote : 1.52
 """
+
+Côte : 2,73 ☑️ 80%
+
+Good luck 🍀
+    
 
 # =========================
 # 👑 VIP SYSTEM
@@ -77,7 +92,7 @@ def keyboard():
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "👋 Bienvenue sur COUPON VIP 💎\n"
+        "👋 Bienvenue sur COUPON VIP 💎, Pour profiter de plus Côte, souscrivez à un Abonnement 💳\n"
         "Choisis une option 👇",
         reply_markup=keyboard()
     )
