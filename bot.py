@@ -19,13 +19,13 @@ ADMIN_ID = 5447711661
 VIP_FILE = "vip.txt"
 
 # =========================
-# 🎫 COUPONS (MODIFIABLE ICI)
+# 🎫 COUPONS
 # =========================
 
 COUPON_FREE = """
 🎫 COUPON GRATUIT
 
-⚽ Avenir 
+⚽ Avenir
 ➡️ x
 📊 Cote : x
 """
@@ -33,7 +33,7 @@ COUPON_FREE = """
 COUPON_VIP = """
 💎 COUPON VIP
 
-⚽ Avenir 
+⚽ Avenir
 ➡️ x
 📊 Cote : x
 """
@@ -62,13 +62,13 @@ vip_users = load_vips()
 pending_payment = {}
 
 # =========================
-# 🎛 MENU
+# MENU
 # =========================
 
 def menu():
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("Coupon Gratuit🎫", callback_data="free")],
-        [InlineKeyboardButton("Coupon VIP💎", callback_data="vip")],
+        [InlineKeyboardButton("🎫 Coupon Gratuit", callback_data="free")],
+        [InlineKeyboardButton("💎 Coupon VIP", callback_data="vip")],
         [InlineKeyboardButton("💳 Abonnement", callback_data="pay")],
         [InlineKeyboardButton("📞 Admin", callback_data="admin")]
     ])
@@ -79,7 +79,7 @@ def menu():
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "👋 Bienvenue sur COUPON VIP. Pour Profiter des meilleurs côte, Prenez un Abonnement VIP💎",
+        "👋 Bienvenue sur COUPON VIP 💎. Pour profiter des bonne côte, Prenez un Abonnement 💳.",
         reply_markup=menu()
     )
 
@@ -104,24 +104,24 @@ async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.message.reply_text("❌ VIP requis")
 
     elif data == "pay":
-    pending_payment[user_id] = {"step": "wait_id"}
+        pending_payment[user_id] = {"step": "wait_id"}
 
-    await query.message.reply_text(
-        "💳 ABONNEMENT VIP\n\n"
-        "📌 Tarifs :\n"
-        "🗓️ Semaine : 1 500 XOF\n"
-        "📅 Mois : 2 500 XOF\n\n"
-        "📌 Procédure :\n"
-        "1️⃣ Envoie ton ID Telegram\n"
-        "2️⃣ Envoie la capture de paiement\n"
-        "3️⃣ Validation par l’admin\n\n"
-        "⏳ Délai d’activation : maximum 24h\n"
-        "⚠️ Si dépassement des 24h, contacte le support\n\n"
-        "🔒 GARANTIE :\n"
-        "✔ Activation assurée après vérification\n"
-        "✔ Sécurité des paiements garantie\n"
-        "✔ Aucun accès VIP sans validation"
-    )
+        await query.message.reply_text(
+            "💳 ABONNEMENT VIP\n\n"
+            "📌 Tarifs :\n"
+            "🗓️ Semaine : 1 500 XOF\n"
+            "📅 Mois : 2 500 XOF\n\n"
+            "📌 Procédure :\n"
+            "1️⃣ Envoie ton ID Telegram\n"
+            "2️⃣ Envoie la capture de paiement\n"
+            "3️⃣ Validation par l’admin\n\n"
+            "⏳ Délai d’activation : maximum 24h\n"
+            "⚠️ Si dépassement des 24h, contacte le support\n\n"
+            "🔒 GARANTIE :\n"
+            "✔ Activation après vérification\n"
+            "✔ Paiement sécurisé\n"
+            "✔ Aucun accès sans validation"
+        )
 
     elif data == "admin":
         await query.message.reply_text(
@@ -164,7 +164,6 @@ async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         uid = pending_payment[user_id]["uid"]
 
-        # 📩 ENVOI ADMIN
         await context.bot.send_message(
             chat_id=ADMIN_ID,
             text=f"""
@@ -223,5 +222,5 @@ app.add_handler(MessageHandler(filters.PHOTO, photo_handler))
 app.add_handler(CommandHandler("valider", valider))
 app.add_handler(CommandHandler("refuser", refuser))
 
-print("🤖 BOT VIP BUSINESS EN LIGNE")
+print("🤖 BOT VIP EN LIGNE")
 app.run_polling()
