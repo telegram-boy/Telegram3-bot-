@@ -70,6 +70,7 @@ def menu():
         [InlineKeyboardButton("🎫 Coupon Gratuit", callback_data="free")],
         [InlineKeyboardButton("💎 Coupon VIP", callback_data="vip")],
         [InlineKeyboardButton("💳 Abonnement", callback_data="pay")],
+        [InlineKeyboardButton("🆔 Mon ID", callback_data="myid")],
         [InlineKeyboardButton("📞 Admin", callback_data="admin")]
     ])
 
@@ -79,7 +80,7 @@ def menu():
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "👋 Bienvenue sur COUPON VIP 💎. Pour profiter des bonne côte, Prenez un Abonnement 💳.",
+        "👋 Bienvenue sur COUPON VIP 💎",
         reply_markup=menu()
     )
 
@@ -111,16 +112,18 @@ async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "📌 Tarifs :\n"
             "🗓️ Semaine : 1 500 XOF\n"
             "📅 Mois : 2 500 XOF\n\n"
-            "📌 Procédure :\n"
+            "📌 Étapes :\n"
             "1️⃣ Envoie ton ID Telegram\n"
             "2️⃣ Envoie la capture de paiement\n"
             "3️⃣ Validation par l’admin\n\n"
-            "⏳ Délai d’activation : maximum 24h\n"
-            "⚠️ Si dépassement des 24h, contacte le support\n\n"
-            "🔒 GARANTIE :\n"
-            "✔ Activation après vérification\n"
-            "✔ Paiement sécurisé\n"
-            "✔ Aucun accès sans validation"
+            "⏳ Délai max : 24h\n"
+            "⚠️ Support si retard\n\n"
+            "🔒 Paiement sécurisé"
+        )
+
+    elif data == "myid":
+        await query.message.reply_text(
+            f"🆔 TON ID TELEGRAM : {user_id}"
         )
 
     elif data == "admin":
@@ -129,7 +132,7 @@ async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 # =========================
-# ID HANDLER
+# TEXT HANDLER
 # =========================
 
 async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -147,7 +150,7 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 pending_payment[user_id]["step"] = "wait_photo"
 
                 await update.message.reply_text(
-                    "📸 Maintenant envoie la capture de paiement"
+                    "📸 Envoie maintenant la capture de paiement"
                 )
             except:
                 await update.message.reply_text("❌ ID invalide")
@@ -178,7 +181,7 @@ async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
         await update.message.reply_text(
-            "📩 Paiement envoyé à l’admin pour validation"
+            "📩 Paiement envoyé à l’admin"
         )
 
 # =========================
