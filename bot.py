@@ -27,33 +27,28 @@ VIP_FILE = "vip.txt"
 COUPON_FREE = """
 🎫 COUPON GRATUIT
 
-⚽ Matchs Portugal vs Espagne 
-➡️ +0.5 but Portugal 
+⚽ Match Portugal vs Espagne
+➡️ +0.5 but Portugal
 📊 Cote : 1.41
-"""
 
-Les meilleurs Côte sont dans les Coupon VIP 🎫
+👉 Les meilleures côtes sont dans les Coupons VIP 💎
+"""
 
 COUPON_VIP = """
 💎 COUPON VIP
 
-⚽ Match BK Hacken vs Djurgarden
-➡️ -3,5 buts 
+⚽ Match 1 : BK Hacken vs Djurgarden
+➡️ -3.5 buts
 📊 Cote : 1.57
-"""
 
-COUPON_VIP = """
-💎 COUPON VIP
-
-⚽ Match Portugal vs Espagne 
-➡️ VN 1ère/MT
+⚽ Match 2 : Portugal vs Espagne
+➡️ VN 1ère mi-temps
 📊 Cote : 1.52
+
+📊 Cote combinée : 2.73
+🔥 Probabilité : 80%
+🍀 Good luck
 """
-
-Côte : 2,73 ☑️ 80%
-
-Good luck 🍀
-    
 
 # =========================
 # 👑 VIP SYSTEM
@@ -92,7 +87,8 @@ def keyboard():
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "👋 Bienvenue sur COUPON VIP 💎, Pour profiter de plus Côte, souscrivez à un Abonnement 💳\n"
+        "👋 Bienvenue sur COUPON VIP 💎\n"
+        "Pour profiter de meilleures côtes, souscris à un abonnement 💳\n\n"
         "Choisis une option 👇",
         reply_markup=keyboard()
     )
@@ -124,35 +120,30 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "📅 Mois : 2 500 XOF (30 jours)\n\n"
             "💰 Paiement : Wave / Orange Money\n"
             f"📞 Numéro : {PAY_NUMBER}\n\n"
-            "📌 IMPORTANT : paiement non remboursable.\n"
-            "📌 L’admin choisit la formule (7 ou 30 jours).\n\n"
+            "⚠️ Paiement non remboursable\n"
+            "📌 L’admin choisit la formule (7 ou 30 jours)\n\n"
             "📌 Étapes :\n"
             "1️⃣ Envoie ton ID Telegram\n"
-            "2️⃣ Envoie la capture\n"
+            "2️⃣ Envoie la capture de paiement\n"
             "3️⃣ Validation admin\n\n"
             "⏳ Délai max : 24h"
         )
 
-    # =========================
-    # ✅ J'AI PAYÉ (MODIFIÉ)
-    # =========================
+    # ✅ J'AI PAYÉ
     elif text == "✅ J'ai payé":
 
-        # 👉 NOUVELLE LOGIQUE AJOUTÉE
         if user_id in vip_users:
             await update.message.reply_text(
-                "🎉 Vous êtes déjà abonné VIP.\n\n"
-                "💎 Votre abonnement est actif.\n"
-                "👉 Cliquez sur '💎 Coupon VIP' pour voir les pronostics."
+                "🎉 Vous êtes déjà abonné VIP\n"
+                "👉 Cliquez sur 💎 Coupon VIP"
             )
             return
 
         await update.message.reply_text(
             "📩 Demande reçue\n\n"
-            "Votre paiement est en cours de vérification.\n"
-            "Un admin va vérifier votre demande.\n\n"
+            "Votre paiement est en cours de vérification\n"
             "⏳ Délai max : 12h\n"
-            "📞 Contact si retard : support admin"
+            "📞 Contact support si retard"
         )
 
     # 🆔 ID
@@ -166,7 +157,7 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 # =========================
-# 📸 PHOTO (PAIEMENT)
+# 📸 PHOTO HANDLER
 # =========================
 
 async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -194,24 +185,20 @@ async def addvip7(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.from_user.id != ADMIN_ID:
         return
 
-    try:
-        uid = int(context.args[0])
-        vip_users.add(uid)
-        save_vips(vip_users)
+    uid = int(context.args[0])
+    vip_users.add(uid)
+    save_vips(vip_users)
 
-        await context.bot.send_message(
-            chat_id=uid,
-            text=(
-                "🎉 Félicitations 🎉\n\n"
-                "VIP activé : 7 jours\n"
-                "💎 Profitez de vos coupons VIP\n"
-            )
+    await context.bot.send_message(
+        chat_id=uid,
+        text=(
+            "🎉 Félicitations 🎉\n\n"
+            "Votre abonnement VIP 7 jours est activé\n"
+            "💎 Profitez de vos pronostics"
         )
+    )
 
-        await update.message.reply_text("✅ VIP 7 jours ajouté")
-
-    except:
-        await update.message.reply_text("❌ erreur")
+    await update.message.reply_text("✅ VIP 7 jours ajouté")
 
 # =========================
 # 👑 VIP 30 JOURS
@@ -221,24 +208,20 @@ async def addvip30(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.from_user.id != ADMIN_ID:
         return
 
-    try:
-        uid = int(context.args[0])
-        vip_users.add(uid)
-        save_vips(vip_users)
+    uid = int(context.args[0])
+    vip_users.add(uid)
+    save_vips(vip_users)
 
-        await context.bot.send_message(
-            chat_id=uid,
-            text=(
-                "🎉 Félicitations 🎉\n\n"
-                "VIP activé : 30 jours\n"
-                "💎 Profitez de vos coupons VIP\n"
-            )
+    await context.bot.send_message(
+        chat_id=uid,
+        text=(
+            "🎉 Félicitations 🎉\n\n"
+            "Votre abonnement VIP 30 jours est activé\n"
+            "💎 Profitez de vos pronostics"
         )
+    )
 
-        await update.message.reply_text("✅ VIP 30 jours ajouté")
-
-    except:
-        await update.message.reply_text("❌ erreur")
+    await update.message.reply_text("✅ VIP 30 jours ajouté")
 
 # =========================
 # ❌ REMOVE VIP
@@ -248,20 +231,16 @@ async def removevip(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.from_user.id != ADMIN_ID:
         return
 
-    try:
-        uid = int(context.args[0])
-        vip_users.discard(uid)
-        save_vips(vip_users)
+    uid = int(context.args[0])
+    vip_users.discard(uid)
+    save_vips(vip_users)
 
-        await context.bot.send_message(
-            chat_id=uid,
-            text="⚠️ VIP terminé. Merci 💙"
-        )
+    await context.bot.send_message(
+        chat_id=uid,
+        text="⚠️ Votre VIP est terminé. Merci 💙"
+    )
 
-        await update.message.reply_text("❌ VIP retiré")
-
-    except:
-        await update.message.reply_text("❌ erreur")
+    await update.message.reply_text("❌ VIP retiré")
 
 # =========================
 # 📋 LIST VIP
