@@ -18,23 +18,23 @@ VIP_FILE = "vip.txt"
 COUPON_FREE = """
 🎫 COUPON GRATUIT
 
-⚽ Match Example
-➡️ +1.5 buts
-📊 Cote : 1.60
+⚽ Match 
+➡️ x
+📊 Cote : x
 """
 
 COUPON_VIP = """
 💎 COUPON VIP
 
 ⚽ Match 1
-➡️ Victoire équipe A
-📊 Cote : 1.85
+➡️ x
+📊 Cote : x
 
 ⚽ Match 2
-➡️ +2.5 buts
-📊 Cote : 1.95
+➡️ x
+📊 Cote : x
 
-🎯 Cote totale : 3.61
+🎯 Cote totale : x
 """
 
 # =========================
@@ -70,7 +70,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
     await update.message.reply_text(
-        "👋 Bienvenue sur COUPON VIP",
+        "👋 Bienvenue sur COUPON VIP. Pour profiter des meilleurs côte prends un abonnement sur le bouton Abonnement💳",
         reply_markup=reply_markup
     )
 
@@ -96,9 +96,11 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("❌ Accès VIP refusé")
 
     # 💳 PAIEMENT
-    elif text == "💳 J'ai payé":
+    elif text == "Abonnement 💳":
         await update.message.reply_text(
-            "📩 Envoie ton ID Telegram à l'admin pour validation."
+            " L'abonnement Mois est de 2,500XOF et l'abonnement semaine est 1,500XOF."
+            "📩 Envoie ton ID Telegram suivie de la capture du paiement à l'admin pour validation."
+            " Après paiement si vous contacter que le service mets plus de temps à vous acceptez dans l'onglet COUPON VIP, recontacter le service"
         )
 
     # 🆔 ID
