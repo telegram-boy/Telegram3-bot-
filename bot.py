@@ -25,17 +25,17 @@ VIP_FILE = "vip.txt"
 COUPON_FREE = """
 🎫 COUPON GRATUIT
 
-⚽ Match Exemple
-➡️ +1.5 buts
-📊 Cote : 1.60
+⚽ Avenir 
+➡️ x
+📊 Cote : x
 """
 
 COUPON_VIP = """
 💎 COUPON VIP
 
-⚽ Match VIP
-➡️ Victoire équipe A
-📊 Cote : 1.85
+⚽ Avenir 
+➡️ x
+📊 Cote : x
 """
 
 # =========================
@@ -67,8 +67,8 @@ pending_payment = {}
 
 def menu():
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("🎫 Gratuit", callback_data="free")],
-        [InlineKeyboardButton("💎 VIP", callback_data="vip")],
+        [InlineKeyboardButton("Coupon Gratuit🎫", callback_data="free")],
+        [InlineKeyboardButton("Coupon VIP💎", callback_data="vip")],
         [InlineKeyboardButton("💳 Abonnement", callback_data="pay")],
         [InlineKeyboardButton("📞 Admin", callback_data="admin")]
     ])
@@ -79,7 +79,7 @@ def menu():
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "👋 Bienvenue sur COUPON VIP",
+        "👋 Bienvenue sur COUPON VIP. Pour Profiter des meilleurs côte, Prenez un Abonnement VIP💎",
         reply_markup=menu()
     )
 
@@ -104,14 +104,24 @@ async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.message.reply_text("❌ VIP requis")
 
     elif data == "pay":
-        pending_payment[user_id] = {"step": "wait_id"}
+    pending_payment[user_id] = {"step": "wait_id"}
 
-        await query.message.reply_text(
-            "💳 ABONNEMENT VIP\n\n"
-            "📌 Étape 1 : Envoie ton ID Telegram\n"
-            "📌 Étape 2 : Envoie la capture de paiement\n\n"
-            "⚠️ Obligatoire pour validation"
-        )
+    await query.message.reply_text(
+        "💳 ABONNEMENT VIP\n\n"
+        "📌 Tarifs :\n"
+        "🗓️ Semaine : 1 500 XOF\n"
+        "📅 Mois : 2 500 XOF\n\n"
+        "📌 Procédure :\n"
+        "1️⃣ Envoie ton ID Telegram\n"
+        "2️⃣ Envoie la capture de paiement\n"
+        "3️⃣ Validation par l’admin\n\n"
+        "⏳ Délai d’activation : maximum 24h\n"
+        "⚠️ Si dépassement des 24h, contacte le support\n\n"
+        "🔒 GARANTIE :\n"
+        "✔ Activation assurée après vérification\n"
+        "✔ Sécurité des paiements garantie\n"
+        "✔ Aucun accès VIP sans validation"
+    )
 
     elif data == "admin":
         await query.message.reply_text(
