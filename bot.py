@@ -18,7 +18,7 @@ ADMIN_ID = 5447711661
 VIP_FILE = "vip.txt"
 
 # =========================
-# 🎫 COUPONS (MODIFIABLE ICI)
+# 🎫 COUPONS
 # =========================
 
 COUPON_FREE = """
@@ -86,7 +86,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 # =========================
-# 💬 MESSAGE HANDLER
+# 💬 MESSAGE HANDLER (CORRIGÉ)
 # =========================
 
 async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -96,6 +96,7 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # 🎫 GRATUIT
     if text == "🎫 Coupon Gratuit":
         await update.message.reply_text(COUPON_FREE)
+        return
 
     # 💎 VIP
     elif text == "💎 Coupon VIP":
@@ -103,6 +104,7 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(COUPON_VIP)
         else:
             await update.message.reply_text("❌ Accès VIP refusé")
+        return
 
     # 💳 ABONNEMENT
     elif text == "💳 Abonnement":
@@ -119,6 +121,7 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
         pending_payment[user_id] = {"step": "wait_id"}
+        return
 
     # ✅ J'AI PAYÉ
     elif text == "✅ J'ai payé":
@@ -129,10 +132,12 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "⏳ Délai maximum : 12 heures\n"
             "📞 Si aucun retour après 12h, contactez le support."
         )
+        return
 
     # 🆔 ID
     elif text == "🆔 Mon ID":
         await update.message.reply_text(f"🆔 Ton ID Telegram : {user_id}")
+        return
 
     # 📞 CONTACT
     elif text == "📞 Contact Admin":
@@ -140,20 +145,31 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "📞 Admin : @HardingMichelle\n"
             "💰 +2250586692183"
         )
+        return
 
-    # 💳 PAIEMENT FLOW
-    if user_id in pending_payment:
-        step = pending_payment[user_id]["step"]
+    # =========================
+    # 💳 FLOW PAIEMENT PROPRE
+    # =========================
 
-        if step == "wait_id":
-            try:
-                uid = int(text)
-                pending_payment[user_id]["uid"] = uid
-                pending_payment[user_id]["step"] = "wait_photo"
+    if user_id not in pending_payment:
+        return
 
-                await update.message.reply_text("📸 Envoie maintenant la capture de paiement")
-            except:
-                await update.message.reply_text("❌ ID invalide")
+    step = pending_payment[user_id]["step"]
+
+    # 👉 Étape 1 : ID
+    if step == "wait_id":
+
+        if not text.isdigit():
+            await update.message.reply_text("❌ Envoie uniquement ton ID Telegram (chiffres)")
+            return
+
+        uid = int(text)
+
+        pending_payment[user_id]["uid"] = uid
+        pending_payment[user_id]["step"] = "wait_photo"
+
+        await update.message.reply_text("📸 Envoie maintenant la capture de paiement")
+        return
 
 # =========================
 # 📸 PHOTO HANDLER
@@ -203,7 +219,7 @@ async def addvip(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await context.bot.send_message(
             chat_id=uid,
             text=(
-                "🎉 Félicitations !\n\n"
+                "🎉 Félicitations 🎉\n\n"
                 "Votre abonnement VIP a été activé avec succès.\n"
                 "📅 Durée : 7 jours\n\n"
                 "💎 Cliquez sur '💎 Coupon VIP' pour voir les pronostics."
@@ -211,6 +227,7 @@ async def addvip(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
         await update.message.reply_text(f"✅ VIP ajouté : {uid}")
+
     except:
         await update.message.reply_text("❌ erreur")
 
@@ -232,6 +249,7 @@ async def removevip(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
         await update.message.reply_text(f"❌ VIP retiré : {uid}")
+
     except:
         await update.message.reply_text("❌ erreur")
 
