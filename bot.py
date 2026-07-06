@@ -1,4 +1,5 @@
 import os
+import time
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import (
     ApplicationBuilder,
@@ -17,7 +18,7 @@ ADMIN_ID = 5447711661
 # 💰 PAIEMENT
 PAY_NUMBER = "+2250789247884"
 
-# 📁 VIP STORAGE
+# 📁 VIP FILE
 VIP_FILE = "vip.txt"
 
 # =========================
@@ -30,42 +31,54 @@ COUPON_FREE = """
 ⚽ Match Portugal vs Espagne
 ➡️ +0.5 but Portugal
 📊 Cote : 1.41
-
-👉 Les meilleures côtes sont dans les Coupons VIP 💎
 """
 
 COUPON_VIP = """
 💎 COUPON VIP
 
-⚽ Match 1 : BK Hacken vs Djurgarden
-➡️ -3.5 buts
-📊 Cote : 1.57
-
-⚽ Match 2 : Portugal vs Espagne
-➡️ VN 1ère mi-temps
-📊 Cote : 1.52
-
-📊 Cote combinée : 2.73
-🔥 Probabilité : 80%
-🍀 Good luck
+⚽ Match VIP du jour
+➡️ Analyse premium
+📊 Cote : 2.00+
+🔥 Bonne chance
 """
 
 # =========================
-# 👑 VIP SYSTEM
+# 👑 VIP SYSTEM (EXPIRATION)
 # =========================
 
 def load_vips():
     try:
         with open(VIP_FILE, "r") as f:
-            return set(map(int, f.read().split()))
+            data = f.read().splitlines()
+
+        vips = {}
+        for line in data:
+            if ":" in line:
+                uid, exp = line.split(":")
+                vips[int(uid)] = float(exp)
+
+        return vips
     except:
-        return set()
+        return {}
 
 def save_vips(vips):
     with open(VIP_FILE, "w") as f:
-        f.write(" ".join(map(str, vips)))
+        for uid, exp in vips.items():
+            f.write(f"{uid}:{exp}\n")
 
 vip_users = load_vips()
+
+def is_vip(uid):
+    if uid not in vip_users:
+        return False
+
+    # ❌ VIP expiré
+    if vip_users[uid] < time.time():
+        del vip_users[uid]
+        save_vips(vip_users)
+        return False
+
+    return True
 
 # =========================
 # 📱 MENU
@@ -88,7 +101,6 @@ def keyboard():
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "👋 Bienvenue sur COUPON VIP 💎\n"
-        "Pour profiter de meilleures côtes, souscris à un abonnement 💳\n\n"
         "Choisis une option 👇",
         reply_markup=keyboard()
     )
@@ -107,7 +119,7 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # 💎 VIP
     elif text == "💎 Coupon VIP":
-        if user_id in vip_users:
+        if is_vip(user_id):
             await update.message.reply_text(COUPON_VIP)
         else:
             await update.message.reply_text("❌ Accès VIP refusé")
@@ -121,18 +133,13 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "💰 Paiement : Wave / Orange Money\n"
             f"📞 Numéro : {PAY_NUMBER}\n\n"
             "⚠️ Paiement non remboursable\n"
-            "📌 L’admin choisit la formule (7 ou 30 jours)\n\n"
-            "📌 Étapes :\n"
-            "1️⃣ Envoie ton ID Telegram\n"
-            "2️⃣ Envoie la capture de paiement\n"
-            "3️⃣ Validation admin\n\n"
+            "📌 L’admin choisit la durée\n\n"
             "⏳ Délai max : 24h"
         )
 
     # ✅ J'AI PAYÉ
     elif text == "✅ J'ai payé":
-
-        if user_id in vip_users:
+        if is_vip(user_id):
             await update.message.reply_text(
                 "🎉 Vous êtes déjà abonné VIP\n"
                 "👉 Cliquez sur 💎 Coupon VIP"
@@ -140,9 +147,8 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         await update.message.reply_text(
-            "📩 Demande reçue\n\n"
-            "Votre paiement est en cours de vérification\n"
-            "⏳ Délai max : 12h\n"
+            "📩 Demande reçue\n"
+            "⏳ Vérification en cours (max 12h)\n"
             "📞 Contact support si retard"
         )
 
@@ -157,7 +163,7 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 # =========================
-# 📸 PHOTO HANDLER
+# 📸 PHOTO PAIEMENT
 # =========================
 
 async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -175,7 +181,7 @@ async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
     )
 
-    await update.message.reply_text("📩 Capture envoyée à l’admin")
+    await update.message.reply_text("📩 Envoyé à l’admin")
 
 # =========================
 # 👑 VIP 7 JOURS
@@ -186,15 +192,18 @@ async def addvip7(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     uid = int(context.args[0])
-    vip_users.add(uid)
+    exp = time.time() + (7 * 24 * 60 * 60)
+
+    vip_users[uid] = exp
     save_vips(vip_users)
 
     await context.bot.send_message(
         chat_id=uid,
         text=(
             "🎉 Félicitations 🎉\n\n"
-            "Votre abonnement VIP 7 jours est activé\n"
-            "💎 Profitez de vos pronostics"
+            "VIP ACTIVÉ : 7 JOURS\n"
+            "💎 Profitez de vos coupons\n\n"
+            "👉 Cliquez sur 💎 Coupon VIP"
         )
     )
 
@@ -209,15 +218,18 @@ async def addvip30(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     uid = int(context.args[0])
-    vip_users.add(uid)
+    exp = time.time() + (30 * 24 * 60 * 60)
+
+    vip_users[uid] = exp
     save_vips(vip_users)
 
     await context.bot.send_message(
         chat_id=uid,
         text=(
             "🎉 Félicitations 🎉\n\n"
-            "Votre abonnement VIP 30 jours est activé\n"
-            "💎 Profitez de vos pronostics"
+            "VIP ACTIVÉ : 30 JOURS\n"
+            "💎 Profitez de vos coupons\n\n"
+            "👉 Cliquez sur 💎 Coupon VIP"
         )
     )
 
@@ -232,8 +244,10 @@ async def removevip(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     uid = int(context.args[0])
-    vip_users.discard(uid)
-    save_vips(vip_users)
+
+    if uid in vip_users:
+        del vip_users[uid]
+        save_vips(vip_users)
 
     await context.bot.send_message(
         chat_id=uid,
@@ -252,7 +266,8 @@ async def listvip(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if vip_users:
         await update.message.reply_text(
-            "👑 VIP LIST:\n" + "\n".join(map(str, vip_users))
+            "👑 VIP LIST:\n" +
+            "\n".join([f"{k}" for k in vip_users.keys()])
         )
     else:
         await update.message.reply_text("Aucun VIP")
@@ -272,5 +287,5 @@ app.add_handler(CommandHandler("addvip30", addvip30))
 app.add_handler(CommandHandler("removevip", removevip))
 app.add_handler(CommandHandler("listvip", listvip))
 
-print("🤖 BOT VIP OK")
+print("🤖 BOT VIP PRO EN LIGNE")
 app.run_polling()
