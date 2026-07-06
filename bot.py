@@ -109,11 +109,8 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "📅 Mois : 2 500 XOF (30 jours)\n\n"
             "💰 Paiement : Wave / Orange Money\n"
             f"📞 Numéro : {PAY_NUMBER}\n\n"
-            "📌 IMPORTANT :\n"
-            "Quel que soit le montant envoyé, il ne sera pas remboursé.\n"
-            "L’admin attribue la formule correcte (7 ou 30 jours).\n\n"
-            "🔒 CONFIANCE :\n"
-            "Traitement sécurisé et vérification manuelle garantie.\n\n"
+            "📌 IMPORTANT : paiement non remboursable.\n"
+            "📌 L’admin choisit la formule (7 ou 30 jours).\n\n"
             "📌 Étapes :\n"
             "1️⃣ Envoie ton ID Telegram\n"
             "2️⃣ Envoie la capture\n"
@@ -121,8 +118,20 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "⏳ Délai max : 24h"
         )
 
-    # ✅ J'AI PAYÉ
+    # =========================
+    # ✅ J'AI PAYÉ (MODIFIÉ)
+    # =========================
     elif text == "✅ J'ai payé":
+
+        # 👉 NOUVELLE LOGIQUE AJOUTÉE
+        if user_id in vip_users:
+            await update.message.reply_text(
+                "🎉 Vous êtes déjà abonné VIP.\n\n"
+                "💎 Votre abonnement est actif.\n"
+                "👉 Cliquez sur '💎 Coupon VIP' pour voir les pronostics."
+            )
+            return
+
         await update.message.reply_text(
             "📩 Demande reçue\n\n"
             "Votre paiement est en cours de vérification.\n"
@@ -180,7 +189,7 @@ async def addvip7(update: Update, context: ContextTypes.DEFAULT_TYPE):
             text=(
                 "🎉 Félicitations 🎉\n\n"
                 "VIP activé : 7 jours\n"
-                "💎 Profitez de vos coupons quotidiens\n"
+                "💎 Profitez de vos coupons VIP\n"
             )
         )
 
@@ -207,7 +216,7 @@ async def addvip30(update: Update, context: ContextTypes.DEFAULT_TYPE):
             text=(
                 "🎉 Félicitations 🎉\n\n"
                 "VIP activé : 30 jours\n"
-                "💎 Profitez de vos coupons quotidiens\n"
+                "💎 Profitez de vos coupons VIP\n"
             )
         )
 
@@ -247,12 +256,15 @@ async def listvip(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.from_user.id != ADMIN_ID:
         return
 
-    await update.message.reply_text(
-        "👑 VIP LIST:\n" + "\n".join(map(str, vip_users)) if vip_users else "Aucun VIP"
-    )
+    if vip_users:
+        await update.message.reply_text(
+            "👑 VIP LIST:\n" + "\n".join(map(str, vip_users))
+        )
+    else:
+        await update.message.reply_text("Aucun VIP")
 
 # =========================
-# 🚀 START BOT
+# 🚀 BOT START
 # =========================
 
 app = ApplicationBuilder().token(TOKEN).build()
