@@ -86,7 +86,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 # =========================
-# 💬 MESSAGE HANDLER (CORRIGÉ)
+# 💬 MESSAGE HANDLER (FIXÉ)
 # =========================
 
 async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -148,7 +148,7 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     # =========================
-    # 💳 FLOW PAIEMENT PROPRE
+    # 💳 FLOW PAIEMENT
     # =========================
 
     if user_id not in pending_payment:
@@ -156,11 +156,10 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     step = pending_payment[user_id]["step"]
 
-    # 👉 Étape 1 : ID
     if step == "wait_id":
 
         if not text.isdigit():
-            await update.message.reply_text("❌ Envoie uniquement ton ID Telegram (chiffres)")
+            await update.message.reply_text("❌ Envoie uniquement ton ID Telegram")
             return
 
         uid = int(text)
@@ -198,21 +197,29 @@ async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
 
             await update.message.reply_text(
-                "📩 Capture envoyée à l’admin pour validation"
+                "📩 Capture envoyée à l’admin"
             )
 
             del pending_payment[user_id]
 
 # =========================
-# 👑 ADMIN COMMANDS
+# 👑 ADMIN COMMANDS (FIXÉ + STABLE)
 # =========================
 
 async def addvip(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.message.from_user.id != ADMIN_ID:
+    user_id = update.message.from_user.id
+
+    if user_id != ADMIN_ID:
+        await update.message.reply_text("❌ Tu n'es pas admin")
+        return
+
+    if len(context.args) == 0:
+        await update.message.reply_text("❌ Utilisation: /addvip ID")
         return
 
     try:
         uid = int(context.args[0])
+
         vip_users.add(uid)
         save_vips(vip_users)
 
@@ -220,32 +227,34 @@ async def addvip(update: Update, context: ContextTypes.DEFAULT_TYPE):
             chat_id=uid,
             text=(
                 "🎉 Félicitations 🎉\n\n"
-                "Votre abonnement VIP a été activé avec succès.\n"
+                "Ton abonnement VIP est activé.\n"
                 "📅 Durée : 7 jours\n\n"
-                "💎 Cliquez sur '💎 Coupon VIP' pour voir les pronostics."
+                "👉 Clique sur '💎 Coupon VIP' pour voir les pronostics."
             )
         )
 
         await update.message.reply_text(f"✅ VIP ajouté : {uid}")
 
     except:
-        await update.message.reply_text("❌ erreur")
+        await update.message.reply_text("❌ ID invalide")
+
 
 async def removevip(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.message.from_user.id != ADMIN_ID:
+    user_id = update.message.from_user.id
+
+    if user_id != ADMIN_ID:
+        await update.message.reply_text("❌ Tu n'es pas admin")
         return
 
     try:
         uid = int(context.args[0])
+
         vip_users.discard(uid)
         save_vips(vip_users)
 
         await context.bot.send_message(
             chat_id=uid,
-            text=(
-                "⚠️ Votre abonnement VIP est terminé.\n\n"
-                "Merci pour votre confiance 💙"
-            )
+            text="⚠️ Ton abonnement VIP est terminé.\nMerci 💙"
         )
 
         await update.message.reply_text(f"❌ VIP retiré : {uid}")
@@ -259,14 +268,13 @@ async def listvip(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if vip_users:
         await update.message.reply_text(
-            "👑 LISTE VIP:\n" +
-            "\n".join(str(x) for x in vip_users)
+            "👑 LISTE VIP:\n" + "\n".join(map(str, vip_users))
         )
     else:
         await update.message.reply_text("Aucun VIP")
 
 # =========================
-# 🚀 BOT START
+# 🚀 START BOT
 # =========================
 
 app = ApplicationBuilder().token(TOKEN).build()
