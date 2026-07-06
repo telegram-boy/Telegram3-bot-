@@ -1,40 +1,41 @@
 import os
-from telegram import Update, ReplyKeyboardMarkup
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import (
+    ApplicationBuilder,
+    CommandHandler,
+    MessageHandler,
+    CallbackQueryHandler,
+    ContextTypes,
+    filters
+)
 
-# 🔐 TOKEN (Railway / Termux env)
+# 🔐 TOKEN
 TOKEN = os.getenv("TOKEN")
 
-# 👑 ID ADMIN (REMPLACE PAR TON ID)
+# 👑 ADMIN ID
 ADMIN_ID = 5447711661
 
-# 📁 FICHIER VIP
+# 📁 VIP FILE
 VIP_FILE = "vip.txt"
 
 # =========================
-# 🎫 COUPONS (MODIFIABLES ICI)
+# 🎫 COUPONS (MODIFIABLE ICI)
 # =========================
 
 COUPON_FREE = """
 🎫 COUPON GRATUIT
 
-⚽ Match 
-➡️ x
-📊 Cote : x
+⚽ Match Exemple
+➡️ +1.5 buts
+📊 Cote : 1.60
 """
 
 COUPON_VIP = """
 💎 COUPON VIP
 
-⚽ Match 1
-➡️ x
-📊 Cote : x
-
-⚽ Match 2
-➡️ x
-📊 Cote : x
-
-🎯 Cote totale : x
+⚽ Match VIP
+➡️ Victoire équipe A
+📊 Cote : 1.85
 """
 
 # =========================
@@ -44,9 +45,9 @@ COUPON_VIP = """
 def load_vips():
     try:
         with open(VIP_FILE, "r") as f:
-            return [int(x) for x in f.read().split()]
+            return set(map(int, f.read().split()))
     except:
-        return []
+        return set()
 
 def save_vips(vips):
     with open(VIP_FILE, "w") as f:
@@ -55,96 +56,162 @@ def save_vips(vips):
 vip_users = load_vips()
 
 # =========================
-# 🚀 START MENU
+# 💳 PAIEMENT EN ATTENTE
+# =========================
+
+pending_payment = {}
+
+# =========================
+# 🎛 MENU
+# =========================
+
+def menu():
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("🎫 Gratuit", callback_data="free")],
+        [InlineKeyboardButton("💎 VIP", callback_data="vip")],
+        [InlineKeyboardButton("💳 Abonnement", callback_data="pay")],
+        [InlineKeyboardButton("📞 Admin", callback_data="admin")]
+    ])
+
+# =========================
+# START
 # =========================
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    keyboard = [
-        ["🎫 Coupon Gratuit"],
-        ["💎 Coupon VIP"],
-        ["Abonnement 💳"],
-        ["🆔 Mon ID"],
-        ["📞 Contact Admin"]
-    ]
-
-    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-
     await update.message.reply_text(
-        "👋 Bienvenue sur COUPON VIP. Pour profiter des meilleurs côte prends un abonnement sur le bouton Abonnement💳",
-        reply_markup=reply_markup
+        "👋 Bienvenue sur COUPON VIP",
+        reply_markup=menu()
     )
 
 # =========================
-# 💬 HANDLE MESSAGES
+# BOUTONS
+# =========================
+
+async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    user_id = query.from_user.id
+    data = query.data
+
+    if data == "free":
+        await query.message.reply_text(COUPON_FREE)
+
+    elif data == "vip":
+        if user_id in vip_users:
+            await query.message.reply_text(COUPON_VIP)
+        else:
+            await query.message.reply_text("❌ VIP requis")
+
+    elif data == "pay":
+        pending_payment[user_id] = {"step": "wait_id"}
+
+        await query.message.reply_text(
+            "💳 ABONNEMENT VIP\n\n"
+            "📌 Étape 1 : Envoie ton ID Telegram\n"
+            "📌 Étape 2 : Envoie la capture de paiement\n\n"
+            "⚠️ Obligatoire pour validation"
+        )
+
+    elif data == "admin":
+        await query.message.reply_text(
+            "📞 Admin : @HardingMichelle\n💰 +2250586692183"
+        )
+
+# =========================
+# ID HANDLER
 # =========================
 
 async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     text = update.message.text
 
-    global vip_users
+    if user_id in pending_payment:
+        step = pending_payment[user_id]["step"]
 
-    # 🎫 GRATUIT
-    if text == "🎫 Coupon Gratuit":
-        await update.message.reply_text(COUPON_FREE)
+        if step == "wait_id":
+            try:
+                uid = int(text)
 
-    # 💎 VIP
-    elif text == "💎 Coupon VIP":
-        if user_id in vip_users:
-            await update.message.reply_text(COUPON_VIP)
-        else:
-            await update.message.reply_text("❌ Accès VIP refusé")
+                pending_payment[user_id]["uid"] = uid
+                pending_payment[user_id]["step"] = "wait_photo"
 
-    # 💳 PAIEMENT
-    elif text == "Abonnement 💳":
-        await update.message.reply_text(
-            " L'abonnement Mois est de 2,500XOF et l'abonnement semaine est 1,500XOF."
-            "📩 Envoie ton ID Telegram suivie de la capture du paiement à l'admin pour validation."
-            " Après paiement si vous contacter que le service mets plus de temps à vous acceptez dans l'onglet COUPON VIP, recontacter le service"
+                await update.message.reply_text(
+                    "📸 Maintenant envoie la capture de paiement"
+                )
+            except:
+                await update.message.reply_text("❌ ID invalide")
+            return
+
+# =========================
+# PHOTO HANDLER
+# =========================
+
+async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.message.from_user.id
+
+    if user_id in pending_payment and update.message.photo:
+
+        uid = pending_payment[user_id]["uid"]
+
+        # 📩 ENVOI ADMIN
+        await context.bot.send_message(
+            chat_id=ADMIN_ID,
+            text=f"""
+💰 NOUVEAU PAIEMENT
+
+👤 USER: {user_id}
+🆔 ID VIP: {uid}
+
+✔ /valider {uid}
+❌ /refuser {uid}
+"""
         )
 
-    # 🆔 ID
-    elif text == "🆔 Mon ID":
-        await update.message.reply_text(f"🆔 Ton ID : {user_id}")
-
-    # 📞 CONTACT
-    elif text == "📞 Contact Admin":
         await update.message.reply_text(
-            "📞 Admin : @HardingMichelle\n"
-            "💰 Paiement : +2250586692183"
+            "📩 Paiement envoyé à l’admin pour validation"
         )
 
 # =========================
-# 👑 ADD VIP (ADMIN ONLY)
+# ADMIN COMMANDES
 # =========================
 
-async def addvip(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    global vip_users
-
+async def valider(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.from_user.id != ADMIN_ID:
         return
 
-    if context.args:
-        try:
-            uid = int(context.args[0])
+    try:
+        uid = int(context.args[0])
+        vip_users.add(uid)
+        save_vips(vip_users)
 
-            if uid not in vip_users:
-                vip_users.append(uid)
-                save_vips(vip_users)
+        await update.message.reply_text(f"✅ VIP activé : {uid}")
+    except:
+        await update.message.reply_text("❌ erreur")
 
-            await update.message.reply_text(f"✅ VIP ajouté : {uid}")
-        except:
-            await update.message.reply_text("❌ ID invalide")
+
+async def refuser(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.message.from_user.id != ADMIN_ID:
+        return
+
+    try:
+        uid = int(context.args[0])
+        await update.message.reply_text(f"❌ Refusé : {uid}")
+    except:
+        await update.message.reply_text("❌ erreur")
 
 # =========================
-# 🚀 BOT START
+# BOT START
 # =========================
 
 app = ApplicationBuilder().token(TOKEN).build()
 
 app.add_handler(CommandHandler("start", start))
-app.add_handler(CommandHandler("addvip", addvip))
+app.add_handler(CallbackQueryHandler(buttons))
 app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle))
+app.add_handler(MessageHandler(filters.PHOTO, photo_handler))
+app.add_handler(CommandHandler("valider", valider))
+app.add_handler(CommandHandler("refuser", refuser))
 
-print("🤖 Bot en ligne...")
+print("🤖 BOT VIP BUSINESS EN LIGNE")
 app.run_polling()
