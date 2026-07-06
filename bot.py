@@ -62,7 +62,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
         ["🎫 Coupon Gratuit"],
         ["💎 Coupon VIP"],
-        ["💳 J'ai payé"],
+        ["Abonnement 💳"],
         ["🆔 Mon ID"],
         ["📞 Contact Admin"]
     ]
