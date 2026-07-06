@@ -2,159 +2,147 @@ import os
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
 
-# =========================
-# 🔐 CONFIG
-# =========================
+# 🔐 TOKEN (Railway / Termux env)
 TOKEN = os.getenv("TOKEN")
 
+# 👑 ID ADMIN (REMPLACE PAR TON ID)
 ADMIN_ID = 5447711661
 
+# 📁 FICHIER VIP
 VIP_FILE = "vip.txt"
-USERS_FILE = "users.txt"
-COUPON_VIP_FILE = "coupon_vip.txt"
-COUPON_FREE_FILE = "coupon_free.txt"
 
 # =========================
-# 📦 LOAD / SAVE
+# 🎫 COUPONS (MODIFIABLES ICI)
 # =========================
-def load_list(file):
+
+COUPON_FREE = """
+🎫 COUPON GRATUIT
+
+⚽ Match Example
+➡️ +1.5 buts
+📊 Cote : 1.60
+"""
+
+COUPON_VIP = """
+💎 COUPON VIP
+
+⚽ Match 1
+➡️ Victoire équipe A
+📊 Cote : 1.85
+
+⚽ Match 2
+➡️ +2.5 buts
+📊 Cote : 1.95
+
+🎯 Cote totale : 3.61
+"""
+
+# =========================
+# 👑 VIP SYSTEM
+# =========================
+
+def load_vips():
     try:
-        with open(file, "r") as f:
+        with open(VIP_FILE, "r") as f:
             return [int(x) for x in f.read().split()]
     except:
         return []
 
-def save_list(file, data):
-    with open(file, "w") as f:
-        f.write(" ".join(map(str, data)))
+def save_vips(vips):
+    with open(VIP_FILE, "w") as f:
+        f.write(" ".join(map(str, vips)))
 
-vip_users = load_list(VIP_FILE)
-users = load_list(USERS_FILE)
-
-def save_user(user_id):
-    if user_id not in users:
-        users.append(user_id)
-        save_list(USERS_FILE, users)
+vip_users = load_vips()
 
 # =========================
-# 🎫 COUPONS
+# 🚀 START MENU
 # =========================
-def read_file(file):
-    try:
-        with open(file, "r", encoding="utf-8") as f:
-            return f.read()
-    except:
-        return "Aucun contenu disponible."
 
-# =========================
-# 🚀 START
-# =========================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.message.from_user.id
-    save_user(user_id)
-
     keyboard = [
         ["🎫 Coupon Gratuit"],
         ["💎 Coupon VIP"],
-        ["💳 Paiement"],
+        ["💳 J'ai payé"],
         ["🆔 Mon ID"],
-        ["📊 Résultats"],
-        ["📞 Contact"]
+        ["📞 Contact Admin"]
     ]
 
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
     await update.message.reply_text(
-        "👋 Bienvenue sur COUPON VIP PRO",
+        "👋 Bienvenue sur COUPON VIP",
         reply_markup=reply_markup
     )
 
 # =========================
-# 💬 MESSAGE HANDLER
+# 💬 HANDLE MESSAGES
 # =========================
+
 async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     text = update.message.text
 
-    save_user(user_id)
+    global vip_users
 
     # 🎫 GRATUIT
     if text == "🎫 Coupon Gratuit":
-        await update.message.reply_text(read_file(COUPON_FREE_FILE))
+        await update.message.reply_text(COUPON_FREE)
 
     # 💎 VIP
     elif text == "💎 Coupon VIP":
         if user_id in vip_users:
-            await update.message.reply_text(read_file(COUPON_VIP_FILE))
+            await update.message.reply_text(COUPON_VIP)
         else:
-            await update.message.reply_text("❌ VIP requis")
+            await update.message.reply_text("❌ Accès VIP refusé")
 
     # 💳 PAIEMENT
-    elif text == "💳 Paiement":
+    elif text == "💳 J'ai payé":
         await update.message.reply_text(
-            "💰 Paiement VIP : 2500 FCFA\n\n"
-            "📱 Mobile Money : +2250586692183\n"
-            "👤 Admin : @HardingMichelle"
+            "📩 Envoie ton ID Telegram à l'admin pour validation."
         )
 
     # 🆔 ID
     elif text == "🆔 Mon ID":
-        await update.message.reply_text(f"🆔 {user_id}")
-
-    # 📊 RESULTATS
-    elif text == "📊 Résultats":
-        await update.message.reply_text("📊 Victoires: 12\n❌ Défaites: 2")
+        await update.message.reply_text(f"🆔 Ton ID : {user_id}")
 
     # 📞 CONTACT
-    elif text == "📞 Contact":
+    elif text == "📞 Contact Admin":
         await update.message.reply_text(
-            "👤 @HardingMichelle\n📱 +2250586692183"
+            "📞 Admin : @HardingMichelle\n"
+            "💰 Paiement : +2250586692183"
         )
 
 # =========================
-# 👑 ADMIN COMMANDS
+# 👑 ADD VIP (ADMIN ONLY)
 # =========================
 
 async def addvip(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    global vip_users
+
     if update.message.from_user.id != ADMIN_ID:
         return
 
     if context.args:
-        uid = int(context.args[0])
-        if uid not in vip_users:
-            vip_users.append(uid)
-            save_list(VIP_FILE, vip_users)
-        await update.message.reply_text(f"✅ VIP ajouté : {uid}")
+        try:
+            uid = int(context.args[0])
 
-async def delvip(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.message.from_user.id != ADMIN_ID:
-        return
+            if uid not in vip_users:
+                vip_users.append(uid)
+                save_vips(vip_users)
 
-    if context.args:
-        uid = int(context.args[0])
-        if uid in vip_users:
-            vip_users.remove(uid)
-            save_list(VIP_FILE, vip_users)
-        await update.message.reply_text(f"❌ VIP supprimé : {uid}")
-
-async def listvip(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.message.from_user.id != ADMIN_ID:
-        return
-
-    await update.message.reply_text(
-        "👑 VIP LIST:\n" + "\n".join(map(str, vip_users))
-    )
+            await update.message.reply_text(f"✅ VIP ajouté : {uid}")
+        except:
+            await update.message.reply_text("❌ ID invalide")
 
 # =========================
 # 🚀 BOT START
 # =========================
+
 app = ApplicationBuilder().token(TOKEN).build()
 
 app.add_handler(CommandHandler("start", start))
 app.add_handler(CommandHandler("addvip", addvip))
-app.add_handler(CommandHandler("delvip", delvip))
-app.add_handler(CommandHandler("listvip", listvip))
 app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle))
 
-print("Bot en ligne...")
+print("🤖 Bot en ligne...")
 app.run_polling()
