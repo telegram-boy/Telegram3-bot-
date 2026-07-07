@@ -125,7 +125,7 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "📸 Étapes :\n"
             "1️⃣ ID Telegram\n"
             "2️⃣ Capture paiement\n"
-            "3️⃣ Validation"
+            "3️⃣ Envoyé au contact admin pour validation"
         )
 
     # ✅ J'AI PAYÉ
