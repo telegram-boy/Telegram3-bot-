@@ -28,8 +28,8 @@ COUPON_FREE = """
 🎫 COUPON GRATUIT
 
 ⚽ Match Lincoln Red Imps FC vs Inter Club d'Escaldes
-➡️ +1.5 but Portugal
-📊 Cote : 1.27
+➡️ +0.5 but Inter Club d'Escaldes
+📊 Cote : 1.39
 
 👉 Les meilleures côtes sont dans les VIP 💎
 """
