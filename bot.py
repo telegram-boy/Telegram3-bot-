@@ -27,9 +27,9 @@ VIP_FILE = "vip.txt"
 COUPON_FREE = """
 🎫 COUPON GRATUIT
 
-⚽ Match Portugal vs Espagne
-➡️ +0.5 but Portugal
-📊 Cote : 1.41
+⚽ Match Lincoln Red Imps FC vs Inter Club d'Escaldes
+➡️ +1.5 but Portugal
+📊 Cote : 1.27
 
 👉 Les meilleures côtes sont dans les VIP 💎
 """
@@ -37,16 +37,16 @@ COUPON_FREE = """
 COUPON_VIP = """
 💎 COUPON VIP
 
-⚽ Match 1 : BK Hacken vs Djurgarden
-➡️ -3.5 buts
-📊 Cote : 1.57
+⚽ Match 1 : Ararat Armenia vs Riga FC
+➡️ Les deux équipes marque ou +2,5 buts 
+📊 Cote : 1.50
 
-⚽ Match 2 : Portugal vs Espagne
-➡️ VN 1ère mi-temps
-📊 Cote : 1.52
+⚽ Match 2 : Tre Fiori vs Larne
+➡️ +1,5 buts Larne 
+📊 Cote : 1.47
 
-📊 Cote combinée : 2.73
-🔥 Probabilité : 76%
+📊 Cote combinée : 2.20
+🔥 Probabilité : 80%
 🍀 Good luck
 """
 
