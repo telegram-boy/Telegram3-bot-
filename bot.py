@@ -20,6 +20,9 @@ PAY_NUMBER = "+2250789247884"
 # 📁 VIP FILE
 VIP_FILE = "vip.txt"
 
+# 📁 FICHIER UTILISATEURS
+USERS_FILE = "users.txt"
+
 # =========================
 # 🎫 COUPONS
 # =========================
@@ -68,6 +71,23 @@ def save_vips(vips):
 vip_users = load_vips()
 
 # =========================
+# 👥 USERS SYSTEM
+# =========================
+
+def load_users():
+    try:
+        with open(USERS_FILE, "r") as f:
+            return set(map(int, f.read().split()))
+    except:
+        return set()
+
+def save_users(users):
+    with open(USERS_FILE, "w") as f:
+        f.write(" ".join(map(str, users)))
+
+users = load_users()
+
+# =========================
 # 📱 MENU
 # =========================
 
@@ -86,6 +106,11 @@ def keyboard():
 # =========================
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+    if update.effective_user.id not in users:
+        users.add(update.effective_user.id)
+        save_users(users)
+
     await update.message.reply_text(
         "👋 Bienvenue sur COUPON VIP 💎\n"
         "Souscris à un abonnement pour accéder aux VIP 💰\n\n"
@@ -264,6 +289,20 @@ async def listvip(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Aucun VIP")
 
 # =========================
+# 📊 STATS
+# =========================
+
+async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.message.from_user.id != ADMIN_ID:
+        return
+
+    await update.message.reply_text(
+        f"📊 STATISTIQUES\n\n"
+        f"👥 Utilisateurs : {len(users)}\n"
+        f"👑 VIP : {len(vip_users)}"
+    )
+
+# =========================
 # 🚀 BOT START
 # =========================
 
@@ -277,6 +316,7 @@ app.add_handler(CommandHandler("addvip7", addvip7))
 app.add_handler(CommandHandler("addvip30", addvip30))
 app.add_handler(CommandHandler("removevip", removevip))
 app.add_handler(CommandHandler("listvip", listvip))
+app.add_handler(CommandHandler("stats", stats))
 
 print("🤖 BOT VIP OK")
 app.run_polling()
