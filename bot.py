@@ -27,9 +27,9 @@ VIP_FILE = "vip.txt"
 COUPON_FREE = """
 🎫 COUPON GRATUIT
 
-⚽ Match Lincoln Red Imps FC vs Inter Club d'Escaldes
-➡️ +0.5 but Inter Club d'Escaldes
-📊 Cote : 1.39
+⚽ Match pas de coupon disponible pour le moment 
+➡️ x
+📊 Cote : x
 
 👉 Les meilleures côtes sont dans les VIP 💎
 """
@@ -37,16 +37,16 @@ COUPON_FREE = """
 COUPON_VIP = """
 💎 COUPON VIP
 
-⚽ Match 1 : Ararat Armenia vs Riga FC
-➡️ Les deux équipes marque ou +2,5 buts 
-📊 Cote : 1.50
+⚽ Match 1 : pas de coupon disponible pour le monde 
+➡️ x
+📊 Cote : x
 
-⚽ Match 2 : Tre Fiori vs Larne
-➡️ +1,5 buts Larne 
-📊 Cote : 1.47
+⚽ Match 2 : x
+➡️ x
+📊 Cote : x
 
-📊 Cote combinée : 2.20
-🔥 Probabilité : 80%
+📊 Cote combinée : x
+🔥 Probabilité : x
 🍀 Good luck
 """
 
