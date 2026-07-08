@@ -124,6 +124,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     user_id = update.message.from_user.id
 
+    users.add(user_id)
+    save_users(users)
+
     if user_id == ADMIN_ID:
 
         await update.message.reply_text(
@@ -151,28 +154,65 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # 📢 Diffusion admin
 
-if user_id == ADMIN_ID and user_id in broadcast_mode:
+    if user_id == ADMIN_ID and user_id in broadcast_mode:
 
-    mode = broadcast_mode[user_id]
+        mode = broadcast_mode[user_id]
 
-    if mode == "all":
-        for uid in users:
-            try:
-                await context.bot.send_message(uid, text)
-            except:
-                pass
+        if mode == "all":
+            for uid in users:
+                try:
+                    await context.bot.send_message(uid, text)
+                except:
+                    pass
 
-    elif mode == "vip":
-        for uid in vip_users:
-            try:
-                await context.bot.send_message(uid, text)
-            except:
-                pass
+        elif mode == "vip":
+            for uid in vip_users:
+                try:
+                    await context.bot.send_message(uid, text)
+                except:
+                    pass
 
-    del broadcast_mode[user_id]
+        del broadcast_mode[user_id]
 
-    await update.message.reply_text("✅ Diffusion terminée.")
-    return
+        await update.message.reply_text("✅ Diffusion terminée.")
+        return
+
+        # 👑 MENU ADMIN
+
+    if user_id == ADMIN_ID:
+
+    if text == "👥 Utilisateurs":
+        await update.message.reply_text(
+            "👥 LISTE UTILISATEURS\n\n"
+            + "\n".join(map(str, users))
+        )
+        return
+
+    elif text == "👑 Liste VIP":
+        await listvip(update, context)
+        return
+
+    elif text == "📊 Statistiques":
+        await stats(update, context)
+        return
+
+    elif text == "💰 Paiements":
+        await update.message.reply_text(
+            "💰 Les paiements arrivent directement ici."
+        )
+        return
+
+    elif text == "🧪 Tester Bot":
+        await update.message.reply_text(
+            "✅ Le bot fonctionne correctement."
+        )
+        return
+
+    elif text == "⚙️ Paramètres":
+        await update.message.reply_text(
+            "⚙️ Paramètres disponibles prochainement."
+        )
+        return
 
     # 🎫 FREE
     if text == "🎫 Coupon Gratuit":
@@ -232,6 +272,13 @@ if user_id == ADMIN_ID and user_id in broadcast_mode:
 
 async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
+
+    if user_id in vip_users:
+        await update.message.reply_text(
+            "🎉 Vous êtes déjà VIP.\n"
+            "Votre abonnement est toujours actif."
+        )
+        return
 
     await context.bot.send_photo(
         chat_id=ADMIN_ID,
@@ -365,23 +412,6 @@ async def broadcastvip(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 # =========================
-# 📊 STATISTIQUES
-# =========================
-
-async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
-
-    if update.message.from_user.id != ADMIN_ID:
-        return
-
-    total_vip = len(vip_users)
-
-    await update.message.reply_text(
-        "📊 STATISTIQUES DU BOT\n\n"
-        f"👑 Nombre de VIP : {total_vip}\n\n"
-        "🚀 Bot opérationnel"
-    )
-
-# =========================
 # 📊 STATS
 # =========================
 
@@ -394,38 +424,6 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"👥 Utilisateurs : {len(users)}\n"
         f"👑 VIP : {len(vip_users)}"
     )
-
-# =========================
-# 👑 COMMANDES PANNEAU ADMIN
-# =========================
-
-if user_id == ADMIN_ID:
-
-    if text == "👑 Liste VIP":
-        await listvip(update, context)
-        return
-
-    elif text == "📊 Statistiques":
-        await stats(update, context)
-        return
-
-    elif text == "💰 Paiements":
-        await update.message.reply_text(
-            "💰 Les paiements sont reçus directement dans ta conversation admin."
-        )
-        return
-
-    elif text == "🧪 Tester Bot":
-        await update.message.reply_text(
-            "✅ Le bot fonctionne correctement."
-        )
-        return
-
-    elif text == "⚙️ Paramètres":
-        await update.message.reply_text(
-            "⚙️ Paramètres disponibles prochainement."
-        )
-        return
 
 # =========================
 # 🚀 BOT START
@@ -444,7 +442,6 @@ app.add_handler(CommandHandler("addvip7", addvip7))
 app.add_handler(CommandHandler("addvip30", addvip30))
 app.add_handler(CommandHandler("removevip", removevip))
 app.add_handler(CommandHandler("listvip", listvip))
-app.add_handler(CommandHandler("stats", stats))
 
 print("🤖 BOT VIP OK")
 app.run_polling()
