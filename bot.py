@@ -177,42 +177,52 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("✅ Diffusion terminée.")
         return
 
-        # 👑 MENU ADMIN
+    # 👑 MENU ADMIN
 
     if user_id == ADMIN_ID:
 
-    if text == "👥 Utilisateurs":
-        await update.message.reply_text(
-            "👥 LISTE UTILISATEURS\n\n"
-            + "\n".join(map(str, users))
-        )
-        return
+        if text == "👥 Utilisateurs":
+            await update.message.reply_text(
+                "👥 LISTE UTILISATEURS\n\n"
+                + "\n".join(map(str, users))
+            )
+            return
 
-    elif text == "👑 Liste VIP":
-        await listvip(update, context)
-        return
+        elif text == "👑 Liste VIP":
+            await listvip(update, context)
+            return
 
-    elif text == "📊 Statistiques":
-        await stats(update, context)
-        return
+        elif text == "📊 Statistiques":
+            await stats(update, context)
+            return
 
-    elif text == "💰 Paiements":
-        await update.message.reply_text(
-            "💰 Les paiements arrivent directement ici."
-        )
-        return
+        elif text == "💰 Paiements":
+            await update.message.reply_text(
+                "💰 Les paiements arrivent directement ici."
+            )
+            return
 
-    elif text == "🧪 Tester Bot":
-        await update.message.reply_text(
-            "✅ Le bot fonctionne correctement."
-        )
-        return
+        elif text == "🧪 Tester Bot":
+            await update.message.reply_text(
+                "✅ Le bot fonctionne correctement."
+            )
+            return
 
-    elif text == "⚙️ Paramètres":
-        await update.message.reply_text(
-            "⚙️ Paramètres disponibles prochainement."
-        )
-        return
+        elif text == "⚙️ Paramètres":
+            await update.message.reply_text(
+                "⚙️ Paramètres disponibles prochainement."
+            )
+            return
+
+        elif text == "📢 Message Tous":
+            await broadcast(update, context
+            )
+            return
+
+        elif text == "💎 Message VIP":
+            await broadcastvip(update, context
+            )
+            return
 
     # 🎫 FREE
     if text == "🎫 Coupon Gratuit":
@@ -220,7 +230,7 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # 💎 VIP
     elif text == "💎 Coupon VIP":
-        if user_id in vip_users:
+        if user_id == ADMIN_ID or user_id in vip_users:
             await update.message.reply_text(COUPON_VIP)
         else:
             await update.message.reply_text("❌ Accès VIP refusé")
@@ -241,7 +251,7 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "3️⃣ Envoyé au contact admin pour validation"
         )
 
-    # ✅ J'AI PAYÉ
+   # ✅ J'AI PAYÉ
     elif text == "✅ J'ai payé":
         if user_id in vip_users:
             await update.message.reply_text(
@@ -254,6 +264,13 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "📩 Demande reçue\n"
             "⏳ Vérification en cours\n"
             "📞 Si retard > 12h contactez support"
+        )
+
+        await context.bot.send_message(
+            ADMIN_ID,
+            f"💰 Nouvelle demande VIP\n\n"
+            f"👤 Utilisateur : {user_id}\n\n"
+            "🔎 Vérifier le paiement."
         )
 
     # 🆔 ID
