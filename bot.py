@@ -87,6 +87,8 @@ def save_users(users):
 
 users = load_users()
 
+broadcast_mode = {}
+
 # =========================
 # 📱 MENU
 # =========================
@@ -102,21 +104,42 @@ def keyboard():
     ], resize_keyboard=True)
 
 # =========================
+# 👑 CLAVIER ADMIN COMPLET
+# =========================
+
+def admin_keyboard():
+    return ReplyKeyboardMarkup([
+        ["👥 Utilisateurs", "👑 Liste VIP"],
+        ["📊 Statistiques", "💰 Paiements"],
+        ["📢 Message Tous", "💎 Message VIP"],
+        ["🎫 Coupon Gratuit", "💎 Coupon VIP"],
+        ["🧪 Tester Bot", "⚙️ Paramètres"]
+    ], resize_keyboard=True)
+
+# =========================
 # 🚀 START
 # =========================
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
-    if update.effective_user.id not in users:
-        users.add(update.effective_user.id)
-        save_users(users)
+    user_id = update.message.from_user.id
 
-    await update.message.reply_text(
-        "👋 Bienvenue sur COUPON VIP 💎\n"
-        "Souscris à un abonnement pour accéder aux VIP 💰\n\n"
-        "Choisis une option 👇",
-        reply_markup=keyboard()
-    )
+    if user_id == ADMIN_ID:
+
+        await update.message.reply_text(
+            "👑 Bienvenue dans ton espace Administrateur\n\n"
+            "Ici tu peux gérer et surveiller ton bot.",
+            reply_markup=admin_keyboard()
+        )
+
+    else:
+
+        await update.message.reply_text(
+            "👋 Bienvenue sur COUPON VIP 💎\n"
+            "Souscris à un abonnement pour accéder aux VIP 💰\n\n"
+            "Choisis une option 👇",
+            reply_markup=keyboard()
+        )
 
 # =========================
 # 💬 HANDLER
@@ -125,6 +148,31 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     text = update.message.text
+
+    # 📢 Diffusion admin
+
+if user_id == ADMIN_ID and user_id in broadcast_mode:
+
+    mode = broadcast_mode[user_id]
+
+    if mode == "all":
+        for uid in users:
+            try:
+                await context.bot.send_message(uid, text)
+            except:
+                pass
+
+    elif mode == "vip":
+        for uid in vip_users:
+            try:
+                await context.bot.send_message(uid, text)
+            except:
+                pass
+
+    del broadcast_mode[user_id]
+
+    await update.message.reply_text("✅ Diffusion terminée.")
+    return
 
     # 🎫 FREE
     if text == "🎫 Coupon Gratuit":
@@ -289,6 +337,51 @@ async def listvip(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Aucun VIP")
 
 # =========================
+# 📢 BROADCAST
+# =========================
+
+async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.message.from_user.id != ADMIN_ID:
+        return
+
+    broadcast_mode[ADMIN_ID] = "all"
+
+    await update.message.reply_text(
+        "📢 Envoie maintenant le message à diffuser à tous les utilisateurs."
+    )
+
+# =========================
+# 💎 BROADCAST VIP
+# =========================
+
+async def broadcastvip(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.message.from_user.id != ADMIN_ID:
+        return
+
+    broadcast_mode[ADMIN_ID] = "vip"
+
+    await update.message.reply_text(
+        "💎 Envoie maintenant le message réservé aux VIP."
+    )
+
+# =========================
+# 📊 STATISTIQUES
+# =========================
+
+async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+    if update.message.from_user.id != ADMIN_ID:
+        return
+
+    total_vip = len(vip_users)
+
+    await update.message.reply_text(
+        "📊 STATISTIQUES DU BOT\n\n"
+        f"👑 Nombre de VIP : {total_vip}\n\n"
+        "🚀 Bot opérationnel"
+    )
+
+# =========================
 # 📊 STATS
 # =========================
 
@@ -303,6 +396,38 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 # =========================
+# 👑 COMMANDES PANNEAU ADMIN
+# =========================
+
+if user_id == ADMIN_ID:
+
+    if text == "👑 Liste VIP":
+        await listvip(update, context)
+        return
+
+    elif text == "📊 Statistiques":
+        await stats(update, context)
+        return
+
+    elif text == "💰 Paiements":
+        await update.message.reply_text(
+            "💰 Les paiements sont reçus directement dans ta conversation admin."
+        )
+        return
+
+    elif text == "🧪 Tester Bot":
+        await update.message.reply_text(
+            "✅ Le bot fonctionne correctement."
+        )
+        return
+
+    elif text == "⚙️ Paramètres":
+        await update.message.reply_text(
+            "⚙️ Paramètres disponibles prochainement."
+        )
+        return
+
+# =========================
 # 🚀 BOT START
 # =========================
 
@@ -311,6 +436,9 @@ app = ApplicationBuilder().token(TOKEN).build()
 app.add_handler(CommandHandler("start", start))
 app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle))
 app.add_handler(MessageHandler(filters.PHOTO, photo_handler))
+app.add_handler(CommandHandler("stats", stats))
+app.add_handler(CommandHandler("broadcast", broadcast))
+app.add_handler(CommandHandler("broadcastvip", broadcastvip))
 
 app.add_handler(CommandHandler("addvip7", addvip7))
 app.add_handler(CommandHandler("addvip30", addvip30))
