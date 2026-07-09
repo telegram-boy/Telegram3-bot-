@@ -918,6 +918,10 @@ async def process_admin_state(update: Update, context: ContextTypes.DEFAULT_TYPE
         set_setting("amb_redeem_vip40_points", parts[1])
         await update.message.reply_text("✅ Seuils de conversion mis à jour.", reply_markup=amb_settings_keyboard())
 
+    elif action in ("broadcast_all", "broadcast_vip"):
+        btype = "all" if action == "broadcast_all" else "vip"
+        await handle_broadcast_text(update, context, btype, text)
+
     clear_state(admin_uid)
     return True
 
@@ -947,11 +951,6 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     text = update.message.text
     touch_user(user_id)
-
-    # Si l'admin est en train de saisir un message à diffuser
-    if user_id == ADMIN_ID and user_id in admin_pending_broadcast and text not in ADMIN_BUTTONS:
-        # ne devrait pas arriver normalement (l'étape de saisie initiale déclenche déjà l'aperçu)
-        pass
 
     # Si le texte correspond à un bouton connu, on annule tout état en cours
     if text in ADMIN_BUTTONS or text in USER_BUTTONS or is_redeem_button(text):
@@ -1149,13 +1148,6 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         elif text == "🔄 Actualiser":
             await update.message.reply_text("🔄 Tableau de bord actualisé.", reply_markup=admin_keyboard())
-            return
-
-        # Réception du texte de diffusion (après clic sur "Message Tous" / "Message VIP")
-        elif user_id in admin_state and admin_state[user_id]["action"] in ("broadcast_all", "broadcast_vip"):
-            btype = "all" if admin_state[user_id]["action"] == "broadcast_all" else "vip"
-            clear_state(user_id)
-            await handle_broadcast_text(update, context, btype, text)
             return
 
     # =========================
