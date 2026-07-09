@@ -730,7 +730,7 @@ def admin_keyboard():
         ["📊 Statistiques", "👥 Utilisateurs"],
         ["👑 Liste VIP", "💰 Paiements"],
         ["🎫 Modifier Coupon Gratuit", "💎 Modifier Coupon VIP"],
-        ["➕ Ajouter VIP 7 jours", "➕ Ajouter VIP 40 jours"],
+        ["➕ Ajouter VIP 7 jours", "➕ Ajouter VIP 30 jours"],
         ["❌ Retirer VIP", "📱 Modifier Numéro"],
         ["📢 Message Tous", "💎 Message VIP"],
         ["🌟 Ambassadeurs", "🏆 Classement"],
@@ -743,7 +743,7 @@ def admin_keyboard():
 ADMIN_BUTTONS = {
     "📊 Statistiques", "👥 Utilisateurs", "👑 Liste VIP", "💰 Paiements",
     "🎫 Modifier Coupon Gratuit", "💎 Modifier Coupon VIP",
-    "➕ Ajouter VIP 7 jours", "➕ Ajouter VIP 40 jours", "❌ Retirer VIP",
+    "➕ Ajouter VIP 7 jours", "➕ Ajouter VIP 30 jours", "❌ Retirer VIP",
     "📱 Modifier Numéro", "📢 Message Tous", "💎 Message VIP", "🔄 Actualiser",
     "🌟 Ambassadeurs", "🏆 Classement", "💸 Demandes paiement ambassadeurs",
     "⚙️ Param. Ambassadeur", "💰 Retrait Min", "⭐ Récompenses Points",
@@ -759,7 +759,7 @@ USER_BUTTONS = {
 
 
 def is_redeem_button(text):
-    return text.startswith("🎁 VIP 7j (") or text.startswith("🎁 VIP 40j (")
+    return text.startswith("🎁 VIP 7j (") or text.startswith("🎁 VIP 30j (")
 
 
 # =========================
@@ -831,7 +831,7 @@ async def process_admin_state(update: Update, context: ContextTypes.DEFAULT_TYPE
         set_setting("pay_number", text.strip())
         await update.message.reply_text("✅ Numéro de paiement mis à jour.", reply_markup=admin_keyboard())
 
-    elif action in ("vip7", "vip40", "vip_remove"):
+    elif action in ("vip7", "vip30", "vip_remove"):
         try:
             uid = int(text.strip())
         except ValueError:
@@ -852,10 +852,10 @@ async def process_admin_state(update: Update, context: ContextTypes.DEFAULT_TYPE
             except Exception:
                 pass
 
-        elif action == "vip40":
+        elif action == "vip30":
             expires = add_vip(uid, 40)
             await update.message.reply_text(
-                f"✅ VIP 40 jours ajouté pour {uid} (expire le {expires.strftime(DATE_FMT)})",
+                f"✅ VIP 30 jours ajouté pour {uid} (expire le {expires.strftime(DATE_FMT)})",
                 reply_markup=admin_keyboard(),
             )
             try:
@@ -893,8 +893,8 @@ async def process_admin_state(update: Update, context: ContextTypes.DEFAULT_TYPE
             return True
         keys = [
             "amb_signup_points", "amb_l1_vip7_points", "amb_l1_vip40_points",
-            "amb_l2_vip7_points", "amb_l2_vip40_points",
-            "amb_personal_vip7_points", "amb_personal_vip40_points",
+            "amb_l2_vip7_points", "amb_l2_vip30_points",
+            "amb_personal_vip7_points", "amb_personal_vip30_points",
         ]
         for k, v in zip(keys, parts):
             set_setting(k, v)
@@ -906,7 +906,7 @@ async def process_admin_state(update: Update, context: ContextTypes.DEFAULT_TYPE
             await update.message.reply_text("❌ Format invalide. Envoie 2 nombres : Commission_VIP7 Commission_VIP40")
             return True
         set_setting("amb_l1_vip7_commission", parts[0])
-        set_setting("amb_l1_vip40_commission", parts[1])
+        set_setting("amb_l1_vip30_commission", parts[1])
         await update.message.reply_text("✅ Commissions mises à jour.", reply_markup=amb_settings_keyboard())
 
     elif action == "set_redeem_thresholds":
@@ -915,7 +915,7 @@ async def process_admin_state(update: Update, context: ContextTypes.DEFAULT_TYPE
             await update.message.reply_text("❌ Format invalide. Envoie 2 nombres : Points_pour_VIP7 Points_pour_VIP40")
             return True
         set_setting("amb_redeem_vip7_points", parts[0])
-        set_setting("amb_redeem_vip40_points", parts[1])
+        set_setting("amb_redeem_vip30_points", parts[1])
         await update.message.reply_text("✅ Seuils de conversion mis à jour.", reply_markup=amb_settings_keyboard())
 
     elif action in ("broadcast_all", "broadcast_vip"):
@@ -1012,8 +1012,8 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("🆔 Envoie l'ID Telegram de l'utilisateur à passer VIP 7 jours :")
             return
 
-        elif text == "➕ Ajouter VIP 40 jours":
-            admin_state[user_id] = {"action": "vip40"}
+        elif text == "➕ Ajouter VIP 30 jours":
+            admin_state[user_id] = {"action": "vip30"}
             await update.message.reply_text("🆔 Envoie l'ID Telegram de l'utilisateur à passer VIP 40 jours :")
             return
 
@@ -1087,15 +1087,15 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"💰 Retrait minimum : {amb_setting('amb_min_withdrawal')} FCFA\n\n"
                 f"⭐ Inscription (N1) : {amb_setting('amb_signup_points')} pts\n"
                 f"⭐ Achat VIP7 par un filleul N1 : {amb_setting('amb_l1_vip7_points')} pts\n"
-                f"⭐ Achat VIP40 par un filleul N1 : {amb_setting('amb_l1_vip40_points')} pts\n"
+                f"⭐ Achat VIP30 par un filleul N1 : {amb_setting('amb_l1_vip30_points')} pts\n"
                 f"⭐ Achat VIP7 par un filleul N2 : {amb_setting('amb_l2_vip7_points')} pts\n"
-                f"⭐ Achat VIP40 par un filleul N2 : {amb_setting('amb_l2_vip40_points')} pts\n"
+                f"⭐ Achat VIP30 par un filleul N2 : {amb_setting('amb_l2_vip30_points')} pts\n"
                 f"⭐ Bonus perso VIP7 : {amb_setting('amb_personal_vip7_points')} pts\n"
-                f"⭐ Bonus perso VIP40 : {amb_setting('amb_personal_vip40_points')} pts\n\n"
+                f"⭐ Bonus perso VIP30 : {amb_setting('amb_personal_vip30_points')} pts\n\n"
                 f"💵 Commission N1 VIP7 : {amb_setting('amb_l1_vip7_commission')} FCFA\n"
-                f"💵 Commission N1 VIP40 : {amb_setting('amb_l1_vip40_commission')} FCFA\n\n"
+                f"💵 Commission N1 VIP30 : {amb_setting('amb_l1_vip30_commission')} FCFA\n\n"
                 f"🎁 Points requis VIP7 gratuit : {amb_setting('amb_redeem_vip7_points')} pts\n"
-                f"🎁 Points requis VIP40 gratuit : {amb_setting('amb_redeem_vip40_points')} pts\n\n"
+                f"🎁 Points requis VIP30 gratuit : {amb_setting('amb_redeem_vip30_points')} pts\n\n"
                 "👉 Choisis ce que tu veux modifier :",
                 reply_markup=amb_settings_keyboard(),
             )
@@ -1114,10 +1114,10 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(
                 "⭐ RÉCOMPENSES EN POINTS\n\n"
                 "Envoie les 6 valeurs dans cet ordre, séparées par des espaces :\n"
-                "Inscription | N1_VIP7 | N1_VIP40 | N2_VIP7 | N2_VIP40 | Bonus_perso_VIP7 | Bonus_perso_VIP40\n\n"
+                "Inscription | N1_VIP7 | N1_VIP30 | N2_VIP7 | N2_VIP30 | Bonus_perso_VIP7 | Bonus_perso_VIP40\n\n"
                 f"Valeurs actuelles :\n{amb_setting('amb_signup_points')} {amb_setting('amb_l1_vip7_points')} "
-                f"{amb_setting('amb_l1_vip40_points')} {amb_setting('amb_l2_vip7_points')} "
-                f"{amb_setting('amb_l2_vip40_points')} {amb_setting('amb_personal_vip7_points')} "
+                f"{amb_setting('amb_l1_vip30_points')} {amb_setting('amb_l2_vip7_points')} "
+                f"{amb_setting('amb_l2_vip30_points')} {amb_setting('amb_personal_vip7_points')} "
                 f"{amb_setting('amb_personal_vip40_points')}\n\n"
                 "⚠️ Ce sont 7 valeurs à envoyer, dans cet ordre exact."
             )
@@ -1127,7 +1127,7 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
             admin_state[user_id] = {"action": "set_commissions"}
             await update.message.reply_text(
                 "💵 COMMISSIONS (FCFA)\n\n"
-                "Envoie les 2 valeurs séparées par un espace : Commission_VIP7 Commission_VIP40\n\n"
+                "Envoie les 2 valeurs séparées par un espace : Commission_VIP7 Commission_VIP30\n\n"
                 f"Valeurs actuelles : {amb_setting('amb_l1_vip7_commission')} {amb_setting('amb_l1_vip40_commission')}"
             )
             return
@@ -1136,7 +1136,7 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
             admin_state[user_id] = {"action": "set_redeem_thresholds"}
             await update.message.reply_text(
                 "🎁 SEUILS DE CONVERSION POINTS → VIP GRATUIT\n\n"
-                "Envoie les 2 valeurs séparées par un espace : Points_pour_VIP7 Points_pour_VIP40\n\n"
+                "Envoie les 2 valeurs séparées par un espace : Points_pour_VIP7 Points_pour_VIP30\n\n"
                 f"Valeurs actuelles : {amb_setting('amb_redeem_vip7_points')} {amb_setting('amb_redeem_vip40_points')}"
             )
             return
@@ -1173,7 +1173,7 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "✅ Un accès prioritaire avant tout le monde\n\n"
             "💳 TARIFS\n"
             "🗓️ Semaine : 1 500 XOF (7 jours)\n"
-            "📅 Mois : 2 500 XOF (40 jours)\n\n"
+            "📅 Mois : 2 500 XOF (30 jours)\n\n"
             f"💰 Paiement Wave / Orange Money : {pay_number}\n\n"
             "👉 Clique sur 💳 Abonnement pour souscrire dès maintenant !"
         )
@@ -1183,7 +1183,7 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             "💳 ABONNEMENT VIP\n\n"
             "🗓️ Semaine : 1 500 XOF (7 jours)\n"
-            "📅 Mois : 2 500 XOF (40 jours)\n\n"
+            "📅 Mois : 2 500 XOF (30 jours)\n\n"
             "💰 Wave / Orange Money\n"
             f"📞 Numéro : {pay_number}\n\n"
             "⚠️ Paiement non remboursable\n"
@@ -1248,7 +1248,7 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"💰 Ma commission : {commission} FCFA\n\n"
             "📈 Objectifs :\n"
             "1000 points = VIP 7 jours\n"
-            "4000 points = VIP 40 jours"
+            "4000 points = VIP 30 jours"
             f"{blocked_note}",
             reply_markup=ambassador_keyboard(),
         )
@@ -1282,7 +1282,7 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
         cost40 = amb_setting("amb_redeem_vip40_points")
         kb = ReplyKeyboardMarkup([
             [f"🎁 VIP 7j ({cost7} pts)"],
-            [f"🎁 VIP 40j ({cost40} pts)"],
+            [f"🎁 VIP 30j ({cost40} pts)"],
             ["⬅️ Retour au menu"],
         ], resize_keyboard=True)
 
@@ -1296,13 +1296,13 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             f"🎁 ÉCHANGE DE POINTS\n\n⭐ Ton solde : {points} points\n\n"
             f"• {cost7} points → VIP gratuit 7 jours\n"
-            f"• {cost40} points → VIP gratuit 40 jours"
+            f"• {cost40} points → VIP gratuit 30 jours"
             f"{histo_lines}",
             reply_markup=kb,
         )
 
     elif is_redeem_button(text):
-        days = 7 if text.startswith("🎁 VIP 7j (") else 40
+        days = 7 if text.startswith("🎁 VIP 7j (") else 30
         ok, msg = redeem_points(user_id, days)
         await update.message.reply_text(msg, reply_markup=ambassador_keyboard())
 
@@ -1408,7 +1408,7 @@ async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     kb = InlineKeyboardMarkup([
         [InlineKeyboardButton("✅ VIP 7j", callback_data=f"pv7:{pid}"),
-         InlineKeyboardButton("✅ VIP 40j", callback_data=f"pv40:{pid}"),
+         InlineKeyboardButton("✅ VIP 30j", callback_data=f"pv40:{pid}"),
          InlineKeyboardButton("❌ Refuser", callback_data=f"pvref:{pid}")]
     ])
 
