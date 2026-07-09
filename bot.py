@@ -143,6 +143,18 @@ CREATE TABLE IF NOT EXISTS ambassador_sales (
 conn.commit()
 
 
+def add_column_if_missing(table, column, coltype):
+    cur.execute(f"PRAGMA table_info({table})")
+    cols = [r[1] for r in cur.fetchall()]
+    if column not in cols:
+        cur.execute(f"ALTER TABLE {table} ADD COLUMN {column} {coltype}")
+        conn.commit()
+
+
+add_column_if_missing("withdrawal_requests", "wave_number", "TEXT")
+add_column_if_missing("withdrawal_requests", "paid_at", "TEXT")
+
+
 def get_setting(key, default=None):
     cur.execute("SELECT value FROM settings WHERE key = ?", (key,))
     row = cur.fetchone()
@@ -158,6 +170,14 @@ def set_setting(key, value):
     conn.commit()
 
 
+def get_int_setting(key, default):
+    val = get_setting(key)
+    try:
+        return int(val) if val is not None else default
+    except (ValueError, TypeError):
+        return default
+
+
 # Initialise les réglages par défaut au premier lancement
 if get_setting("coupon_free") is None:
     set_setting("coupon_free", DEFAULT_COUPON_FREE)
@@ -165,6 +185,30 @@ if get_setting("coupon_vip") is None:
     set_setting("coupon_vip", DEFAULT_COUPON_VIP)
 if get_setting("pay_number") is None:
     set_setting("pay_number", DEFAULT_PAY_NUMBER)
+
+# Paramètres ambassadeur par défaut (modifiables ensuite depuis Telegram, sans toucher au code)
+AMBASSADOR_DEFAULTS = {
+    "amb_signup_points": 10,
+    "amb_l1_vip7_points": 100,
+    "amb_l1_vip7_commission": 150,
+    "amb_l1_vip40_points": 250,
+    "amb_l1_vip40_commission": 300,
+    "amb_l2_vip7_points": 20,
+    "amb_l2_vip40_points": 50,
+    "amb_personal_vip7_points": 20,
+    "amb_personal_vip40_points": 45,
+    "amb_redeem_vip7_points": 1000,
+    "amb_redeem_vip40_points": 4000,
+    "amb_min_withdrawal": 500,
+}
+for _k, _v in AMBASSADOR_DEFAULTS.items():
+    if get_setting(_k) is None:
+        set_setting(_k, str(_v))
+
+
+def amb_setting(key):
+    """Raccourci pour lire un paramètre ambassadeur (entier) avec sa valeur par défaut."""
+    return get_int_setting(key, AMBASSADOR_DEFAULTS[key])
 
 
 # ---- Utilisateurs ----
@@ -312,14 +356,8 @@ def count_broadcasts():
 # 🌟 CLUB AMBASSADEUR
 # =========================
 
-REWARDS = {
-    7: {"points_personal": 20, "points_l1": 100, "commission_l1": 150, "points_l2": 20},
-    40: {"points_personal": 45, "points_l1": 250, "commission_l1": 300, "points_l2": 50},
-}
-
-POINTS_VIP7 = 1000
-POINTS_VIP40 = 4000
-MIN_WITHDRAWAL = 500
+# Les récompenses (points, commissions, seuils) sont désormais stockées dans la table
+# settings et modifiables depuis Telegram via "⚙️ Param. Ambassadeur" (voir amb_setting()).
 
 
 def ensure_ambassador(uid):
@@ -398,7 +436,7 @@ def process_referral(code, new_uid):
     conn.commit()
 
     if not is_blocked(parrain_uid):
-        add_points(parrain_uid, 10, "Nouveau filleul inscrit")
+        add_points(parrain_uid, amb_setting("amb_signup_points"), "Nouveau filleul inscrit")
         return parrain_uid  # pour notification côté appelant
 
 
@@ -435,30 +473,39 @@ def count_vip_niveau2(parrain_uid):
 def credit_purchase_rewards(buyer_uid, days):
     """À appeler quand un paiement VIP est validé. Crédite le filleul + parrains N1/N2."""
     tier = 7 if days <= 7 else 40
-    rules = REWARDS[tier]
+    if tier == 7:
+        pts_personal = amb_setting("amb_personal_vip7_points")
+        pts_l1 = amb_setting("amb_l1_vip7_points")
+        commission_l1 = amb_setting("amb_l1_vip7_commission")
+        pts_l2 = amb_setting("amb_l2_vip7_points")
+    else:
+        pts_personal = amb_setting("amb_personal_vip40_points")
+        pts_l1 = amb_setting("amb_l1_vip40_points")
+        commission_l1 = amb_setting("amb_l1_vip40_commission")
+        pts_l2 = amb_setting("amb_l2_vip40_points")
 
     ensure_ambassador(buyer_uid)
-    add_points(buyer_uid, rules["points_personal"], f"Bonus abonnement personnel VIP {tier}j")
+    add_points(buyer_uid, pts_personal, f"Bonus abonnement personnel VIP {tier}j")
 
     notify = []  # (uid, message)
 
     parrain1 = get_parrain(buyer_uid)
     if parrain1 and not is_blocked(parrain1):
-        add_points(parrain1, rules["points_l1"], f"Filleul direct VIP {tier}j")
-        add_commission(parrain1, rules["commission_l1"], f"Commission filleul direct VIP {tier}j")
+        add_points(parrain1, pts_l1, f"Filleul direct VIP {tier}j")
+        add_commission(parrain1, commission_l1, f"Commission filleul direct VIP {tier}j")
         notify.append((
             parrain1,
             "💎 Félicitations !\n\nTon filleul vient de prendre un abonnement VIP.\n\n"
-            f"⭐ +{rules['points_l1']} points\n💰 +{rules['commission_l1']} FCFA commission Wave",
+            f"⭐ +{pts_l1} points\n💰 +{commission_l1} FCFA commission Wave",
         ))
 
         parrain2 = get_parrain(parrain1)
         if parrain2 and not is_blocked(parrain2):
-            add_points(parrain2, rules["points_l2"], f"Filleul indirect VIP {tier}j")
+            add_points(parrain2, pts_l2, f"Filleul indirect VIP {tier}j")
             notify.append((
                 parrain2,
                 "💎 Félicitations !\n\nUn filleul de ton réseau (niveau 2) vient de prendre un abonnement VIP.\n\n"
-                f"⭐ +{rules['points_l2']} points",
+                f"⭐ +{pts_l2} points",
             ))
 
         now = datetime.now().strftime(DATE_FMT)
@@ -473,14 +520,14 @@ def credit_purchase_rewards(buyer_uid, days):
 
 def redeem_points(uid, days):
     """Échange des points contre un VIP gratuit. Renvoie (ok, message)."""
-    amb = get_ambassador(uid)
-    if not amb:
+    ambassador = get_ambassador(uid)
+    if not ambassador:
         return False, "❌ Compte ambassadeur introuvable."
-    if amb[4]:  # blocked
+    if ambassador[4]:  # blocked
         return False, "❌ Ton compte ambassadeur est bloqué."
 
-    cost = POINTS_VIP7 if days == 7 else POINTS_VIP40
-    points = amb[2]
+    cost = amb_setting("amb_redeem_vip7_points") if days == 7 else amb_setting("amb_redeem_vip40_points")
+    points = ambassador[2]
     if points < cost:
         return False, f"❌ Points insuffisants. Il te faut {cost} points (tu as {points})."
 
@@ -489,28 +536,34 @@ def redeem_points(uid, days):
     return True, f"🎉 Échange réussi ! VIP {days} jours activé.\n⭐ -{cost} points"
 
 
-def request_withdrawal(uid, montant):
-    amb = get_ambassador(uid)
-    if not amb:
+def request_withdrawal(uid, montant, wave_number):
+    ambassador = get_ambassador(uid)
+    if not ambassador:
         return False, "❌ Compte ambassadeur introuvable."
-    if amb[4]:
+    if ambassador[4]:
         return False, "❌ Ton compte ambassadeur est bloqué."
-    if montant < MIN_WITHDRAWAL:
-        return False, f"❌ Le retrait minimum est de {MIN_WITHDRAWAL} FCFA."
-    if montant > amb[3]:
-        return False, f"❌ Solde insuffisant. Ton solde est de {amb[3]} FCFA."
+    min_withdrawal = amb_setting("amb_min_withdrawal")
+    if montant < min_withdrawal:
+        return False, f"❌ Le retrait minimum est de {min_withdrawal} FCFA."
+    if montant > ambassador[3]:
+        return False, f"❌ Solde insuffisant. Ton solde est de {ambassador[3]} FCFA."
 
     now = datetime.now().strftime(DATE_FMT)
     cur.execute(
-        "INSERT INTO withdrawal_requests (utilisateur, montant, statut, date) VALUES (?, ?, 'en_attente', ?)",
-        (uid, montant, now),
+        "INSERT INTO withdrawal_requests (utilisateur, montant, statut, date, wave_number) "
+        "VALUES (?, ?, 'en_attente', ?, ?)",
+        (uid, montant, now, wave_number),
     )
     conn.commit()
     return True, cur.lastrowid
 
 
 def get_withdrawal(wid):
-    cur.execute("SELECT id, utilisateur, montant, statut, date FROM withdrawal_requests WHERE id = ?", (wid,))
+    cur.execute(
+        "SELECT id, utilisateur, montant, statut, date, wave_number, paid_at "
+        "FROM withdrawal_requests WHERE id = ?",
+        (wid,),
+    )
     return cur.fetchone()
 
 
@@ -518,8 +571,12 @@ def update_withdrawal_status(wid, statut, deduct_on_paid=False):
     row = get_withdrawal(wid)
     if not row:
         return
-    _, uid, montant, _, _ = row
-    cur.execute("UPDATE withdrawal_requests SET statut = ? WHERE id = ?", (statut, wid))
+    _, uid, montant, _, _, _, _ = row
+    if statut == "payée":
+        now = datetime.now().strftime(DATE_FMT)
+        cur.execute("UPDATE withdrawal_requests SET statut = ?, paid_at = ? WHERE id = ?", (statut, now, wid))
+    else:
+        cur.execute("UPDATE withdrawal_requests SET statut = ? WHERE id = ?", (statut, wid))
     if deduct_on_paid:
         cur.execute("UPDATE ambassadors SET commission = commission - ? WHERE user_id = ?", (montant, uid))
     conn.commit()
@@ -527,9 +584,32 @@ def update_withdrawal_status(wid, statut, deduct_on_paid=False):
 
 def get_pending_withdrawals():
     cur.execute(
-        "SELECT id, utilisateur, montant, date FROM withdrawal_requests WHERE statut = 'en_attente' ORDER BY date ASC"
+        "SELECT id, utilisateur, montant, date, wave_number FROM withdrawal_requests "
+        "WHERE statut = 'en_attente' ORDER BY date ASC"
     )
     return cur.fetchall()
+
+
+def get_user_withdrawals(uid, limit=15):
+    cur.execute(
+        "SELECT id, montant, statut, date, paid_at FROM withdrawal_requests "
+        "WHERE utilisateur = ? ORDER BY date DESC LIMIT ?",
+        (uid, limit),
+    )
+    return cur.fetchall()
+
+
+def get_user_points_history(uid, limit=5):
+    cur.execute(
+        "SELECT points, raison, date FROM points_history WHERE utilisateur = ? ORDER BY date DESC LIMIT ?",
+        (uid, limit),
+    )
+    return cur.fetchall()
+
+
+def total_paiements_effectues():
+    cur.execute("SELECT COALESCE(SUM(montant), 0) FROM withdrawal_requests WHERE statut = 'payée'")
+    return cur.fetchone()[0]
 
 
 def list_ambassadors(limit=30):
@@ -629,8 +709,19 @@ def ambassador_keyboard():
     return ReplyKeyboardMarkup([
         ["📊 Voir mes filleuls"],
         ["🎁 Échanger mes points"],
-        ["💸 Demander paiement"],
+        ["💸 Retirer ma prime"],
+        ["📜 Historique des paiements"],
         ["⬅️ Retour au menu"],
+    ], resize_keyboard=True)
+
+
+def amb_settings_keyboard():
+    return ReplyKeyboardMarkup([
+        ["💰 Retrait Min"],
+        ["⭐ Récompenses Points"],
+        ["💵 Commissions"],
+        ["🎁 Récompenses VIP (points)"],
+        ["⬅️ Retour Admin"],
     ], resize_keyboard=True)
 
 
@@ -643,7 +734,8 @@ def admin_keyboard():
         ["❌ Retirer VIP", "📱 Modifier Numéro"],
         ["📢 Message Tous", "💎 Message VIP"],
         ["🌟 Ambassadeurs", "🏆 Classement"],
-        ["💸 Demandes Retrait"],
+        ["💸 Demandes paiement ambassadeurs"],
+        ["⚙️ Param. Ambassadeur"],
         ["🔄 Actualiser"],
     ], resize_keyboard=True)
 
@@ -653,16 +745,21 @@ ADMIN_BUTTONS = {
     "🎫 Modifier Coupon Gratuit", "💎 Modifier Coupon VIP",
     "➕ Ajouter VIP 7 jours", "➕ Ajouter VIP 40 jours", "❌ Retirer VIP",
     "📱 Modifier Numéro", "📢 Message Tous", "💎 Message VIP", "🔄 Actualiser",
-    "🌟 Ambassadeurs", "🏆 Classement", "💸 Demandes Retrait",
+    "🌟 Ambassadeurs", "🏆 Classement", "💸 Demandes paiement ambassadeurs",
+    "⚙️ Param. Ambassadeur", "💰 Retrait Min", "⭐ Récompenses Points",
+    "💵 Commissions", "🎁 Récompenses VIP (points)", "⬅️ Retour Admin",
 }
 
 USER_BUTTONS = {
     "🎫 Coupon Gratuit", "💎 Coupon VIP", "🔥 Pourquoi devenir VIP ?",
     "💳 Abonnement", "✅ J'ai payé", "🆔 Mon ID", "📞 Contact Admin",
     "🌟 CLUB AMBASSADEUR", "📊 Voir mes filleuls", "🎁 Échanger mes points",
-    "💸 Demander paiement", "⬅️ Retour au menu",
-    "🎁 VIP 7j (1000 pts)", "🎁 VIP 40j (4000 pts)", "⬅️ Annuler",
+    "💸 Retirer ma prime", "📜 Historique des paiements", "⬅️ Retour au menu",
 }
+
+
+def is_redeem_button(text):
+    return text.startswith("🎁 VIP 7j (") or text.startswith("🎁 VIP 40j (")
 
 
 # =========================
@@ -777,6 +874,50 @@ async def process_admin_state(update: Update, context: ContextTypes.DEFAULT_TYPE
             except Exception:
                 pass
 
+    elif action == "set_min_withdrawal":
+        try:
+            val = int(text.strip())
+        except ValueError:
+            await update.message.reply_text("❌ Envoie un nombre valide.")
+            return True
+        set_setting("amb_min_withdrawal", str(val))
+        await update.message.reply_text(f"✅ Retrait minimum mis à jour : {val} FCFA", reply_markup=amb_settings_keyboard())
+
+    elif action == "set_points_rewards":
+        parts = text.strip().split()
+        if len(parts) != 7 or not all(p.lstrip("-").isdigit() for p in parts):
+            await update.message.reply_text(
+                "❌ Format invalide. Envoie 7 nombres séparés par des espaces, dans l'ordre :\n"
+                "Inscription N1_VIP7 N1_VIP40 N2_VIP7 N2_VIP40 Bonus_perso_VIP7 Bonus_perso_VIP40"
+            )
+            return True
+        keys = [
+            "amb_signup_points", "amb_l1_vip7_points", "amb_l1_vip40_points",
+            "amb_l2_vip7_points", "amb_l2_vip40_points",
+            "amb_personal_vip7_points", "amb_personal_vip40_points",
+        ]
+        for k, v in zip(keys, parts):
+            set_setting(k, v)
+        await update.message.reply_text("✅ Récompenses en points mises à jour.", reply_markup=amb_settings_keyboard())
+
+    elif action == "set_commissions":
+        parts = text.strip().split()
+        if len(parts) != 2 or not all(p.lstrip("-").isdigit() for p in parts):
+            await update.message.reply_text("❌ Format invalide. Envoie 2 nombres : Commission_VIP7 Commission_VIP40")
+            return True
+        set_setting("amb_l1_vip7_commission", parts[0])
+        set_setting("amb_l1_vip40_commission", parts[1])
+        await update.message.reply_text("✅ Commissions mises à jour.", reply_markup=amb_settings_keyboard())
+
+    elif action == "set_redeem_thresholds":
+        parts = text.strip().split()
+        if len(parts) != 2 or not all(p.lstrip("-").isdigit() for p in parts):
+            await update.message.reply_text("❌ Format invalide. Envoie 2 nombres : Points_pour_VIP7 Points_pour_VIP40")
+            return True
+        set_setting("amb_redeem_vip7_points", parts[0])
+        set_setting("amb_redeem_vip40_points", parts[1])
+        await update.message.reply_text("✅ Seuils de conversion mis à jour.", reply_markup=amb_settings_keyboard())
+
     clear_state(admin_uid)
     return True
 
@@ -813,7 +954,7 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
         pass
 
     # Si le texte correspond à un bouton connu, on annule tout état en cours
-    if text in ADMIN_BUTTONS or text in USER_BUTTONS:
+    if text in ADMIN_BUTTONS or text in USER_BUTTONS or is_redeem_button(text):
         clear_state(user_id)
 
     # Si l'admin a un état en attente (saisie suite à un bouton "Modifier ...")
@@ -906,7 +1047,8 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"👥 Ambassadeurs actifs (≥1 filleul) : {total_ambassadors_actifs()}\n"
                 f"👥 Total filleuls (niveau 1) : {total_filleuls_global()}\n"
                 f"💎 Abonnements obtenus grâce aux ambassadeurs : {total_ventes_ambassadeurs()}\n"
-                f"💰 Total commissions distribuées : {total_commissions_distribuees()} FCFA"
+                f"💰 Total commissions distribuées : {total_commissions_distribuees()} FCFA\n"
+                f"💸 Total paiements effectués : {total_paiements_effectues()} FCFA"
             )
             return
 
@@ -928,16 +1070,81 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("\n".join(lines))
             return
 
-        elif text == "💸 Demandes Retrait":
+        elif text == "💸 Demandes paiement ambassadeurs":
             pending = get_pending_withdrawals()
             if not pending:
-                await update.message.reply_text("Aucune demande de retrait en attente.")
+                await update.message.reply_text("Aucune demande de paiement en attente.")
                 return
             lines = ["💸 DEMANDES EN ATTENTE\n"]
-            for wid, uid, montant, date in pending:
-                lines.append(f"#{wid} | 🆔 {uid} | {montant} FCFA | {date}")
-            lines.append("\n👉 Utilise les boutons envoyés au moment de chaque demande pour Accepter / Refuser / Marquer payé.")
+            for wid, uid, montant, date, wave_number in pending:
+                lines.append(f"#{wid} | 🆔 {uid} | {montant} FCFA | 📱 {wave_number or 'non fourni'} | {date}")
+            lines.append("\n👉 Utilise les boutons envoyés au moment de chaque demande pour Paiement effectué / Refuser.")
             await update.message.reply_text("\n".join(lines))
+            return
+
+        elif text == "⚙️ Param. Ambassadeur":
+            await update.message.reply_text(
+                "⚙️ PARAMÈTRES AMBASSADEUR ACTUELS\n\n"
+                f"💰 Retrait minimum : {amb_setting('amb_min_withdrawal')} FCFA\n\n"
+                f"⭐ Inscription (N1) : {amb_setting('amb_signup_points')} pts\n"
+                f"⭐ Achat VIP7 par un filleul N1 : {amb_setting('amb_l1_vip7_points')} pts\n"
+                f"⭐ Achat VIP40 par un filleul N1 : {amb_setting('amb_l1_vip40_points')} pts\n"
+                f"⭐ Achat VIP7 par un filleul N2 : {amb_setting('amb_l2_vip7_points')} pts\n"
+                f"⭐ Achat VIP40 par un filleul N2 : {amb_setting('amb_l2_vip40_points')} pts\n"
+                f"⭐ Bonus perso VIP7 : {amb_setting('amb_personal_vip7_points')} pts\n"
+                f"⭐ Bonus perso VIP40 : {amb_setting('amb_personal_vip40_points')} pts\n\n"
+                f"💵 Commission N1 VIP7 : {amb_setting('amb_l1_vip7_commission')} FCFA\n"
+                f"💵 Commission N1 VIP40 : {amb_setting('amb_l1_vip40_commission')} FCFA\n\n"
+                f"🎁 Points requis VIP7 gratuit : {amb_setting('amb_redeem_vip7_points')} pts\n"
+                f"🎁 Points requis VIP40 gratuit : {amb_setting('amb_redeem_vip40_points')} pts\n\n"
+                "👉 Choisis ce que tu veux modifier :",
+                reply_markup=amb_settings_keyboard(),
+            )
+            return
+
+        elif text == "💰 Retrait Min":
+            admin_state[user_id] = {"action": "set_min_withdrawal"}
+            await update.message.reply_text(
+                f"💰 Montant minimum actuel : {amb_setting('amb_min_withdrawal')} FCFA\n\n"
+                "Envoie le nouveau montant minimum de retrait (nombre) :"
+            )
+            return
+
+        elif text == "⭐ Récompenses Points":
+            admin_state[user_id] = {"action": "set_points_rewards"}
+            await update.message.reply_text(
+                "⭐ RÉCOMPENSES EN POINTS\n\n"
+                "Envoie les 6 valeurs dans cet ordre, séparées par des espaces :\n"
+                "Inscription | N1_VIP7 | N1_VIP40 | N2_VIP7 | N2_VIP40 | Bonus_perso_VIP7 | Bonus_perso_VIP40\n\n"
+                f"Valeurs actuelles :\n{amb_setting('amb_signup_points')} {amb_setting('amb_l1_vip7_points')} "
+                f"{amb_setting('amb_l1_vip40_points')} {amb_setting('amb_l2_vip7_points')} "
+                f"{amb_setting('amb_l2_vip40_points')} {amb_setting('amb_personal_vip7_points')} "
+                f"{amb_setting('amb_personal_vip40_points')}\n\n"
+                "⚠️ Ce sont 7 valeurs à envoyer, dans cet ordre exact."
+            )
+            return
+
+        elif text == "💵 Commissions":
+            admin_state[user_id] = {"action": "set_commissions"}
+            await update.message.reply_text(
+                "💵 COMMISSIONS (FCFA)\n\n"
+                "Envoie les 2 valeurs séparées par un espace : Commission_VIP7 Commission_VIP40\n\n"
+                f"Valeurs actuelles : {amb_setting('amb_l1_vip7_commission')} {amb_setting('amb_l1_vip40_commission')}"
+            )
+            return
+
+        elif text == "🎁 Récompenses VIP (points)":
+            admin_state[user_id] = {"action": "set_redeem_thresholds"}
+            await update.message.reply_text(
+                "🎁 SEUILS DE CONVERSION POINTS → VIP GRATUIT\n\n"
+                "Envoie les 2 valeurs séparées par un espace : Points_pour_VIP7 Points_pour_VIP40\n\n"
+                f"Valeurs actuelles : {amb_setting('amb_redeem_vip7_points')} {amb_setting('amb_redeem_vip40_points')}"
+            )
+            return
+
+        elif text == "⬅️ Retour Admin":
+            clear_state(user_id)
+            await update.message.reply_text("Tableau de bord admin 👇", reply_markup=admin_keyboard())
             return
 
         elif text == "🔄 Actualiser":
@@ -1059,63 +1266,114 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Menu principal 👇", reply_markup=keyboard())
 
     elif text == "📊 Voir mes filleuls":
-        filleuls = get_referrals_list(user_id)
-        if not filleuls:
+        filleuls_n1 = get_referrals_list(user_id)
+        entries = [(fid, fdate, 1) for fid, fdate in filleuls_n1]
+        for fid, _ in filleuls_n1:
+            for sfid, sfdate in get_referrals_list(fid):
+                entries.append((sfid, sfdate, 2))
+
+        if not entries:
             await update.message.reply_text("Tu n'as pas encore de filleul. Partage ton lien pour commencer !")
             return
-        lines = ["👥 MES FILLEULS\n"]
-        for i, (fid, fdate) in enumerate(filleuls, start=1):
-            statut = "💎 VIP actif" if is_vip(fid) else "Utilisateur gratuit"
-            lines.append(f"{i}. 🆔 {fid} — arrivé le {fdate} — {statut}")
-        await update.message.reply_text("\n".join(lines))
 
+        entries.sort(key=lambda e: e[1], reverse=True)
+        lines = ["👥 MES FILLEULS\n"]
+        for i, (fid, fdate, niveau) in enumerate(entries, start=1):
+            statut = "💎 VIP actif" if is_vip(fid) else "✅ Utilisateur gratuit"
+            lines.append(f"{i}. 🆔 {fid} — Niveau {niveau} — inscrit le {fdate} — {statut}")
+        await update.message.reply_text("\n".join(lines))
 
     elif text == "🎁 Échanger mes points":
         amb = get_ambassador(user_id)
         points = amb[2] if amb else 0
+        cost7 = amb_setting("amb_redeem_vip7_points")
+        cost40 = amb_setting("amb_redeem_vip40_points")
         kb = ReplyKeyboardMarkup([
-            ["🎁 VIP 7j (1000 pts)"],
-            ["🎁 VIP 40j (4000 pts)"],
+            [f"🎁 VIP 7j ({cost7} pts)"],
+            [f"🎁 VIP 40j ({cost40} pts)"],
             ["⬅️ Retour au menu"],
         ], resize_keyboard=True)
+
+        historique = get_user_points_history(user_id, 5)
+        histo_lines = ""
+        if historique:
+            histo_lines = "\n\n📜 Derniers mouvements :\n" + "\n".join(
+                f"{'+' if p > 0 else ''}{p} pts — {r} ({d})" for p, r, d in historique
+            )
+
         await update.message.reply_text(
             f"🎁 ÉCHANGE DE POINTS\n\n⭐ Ton solde : {points} points\n\n"
-            f"• 1000 points → VIP gratuit 7 jours\n"
-            f"• 4000 points → VIP gratuit 40 jours",
+            f"• {cost7} points → VIP gratuit 7 jours\n"
+            f"• {cost40} points → VIP gratuit 40 jours"
+            f"{histo_lines}",
             reply_markup=kb,
         )
 
-    elif text == "🎁 VIP 7j (1000 pts)":
-        ok, msg = redeem_points(user_id, 7)
+    elif is_redeem_button(text):
+        days = 7 if text.startswith("🎁 VIP 7j (") else 40
+        ok, msg = redeem_points(user_id, days)
         await update.message.reply_text(msg, reply_markup=ambassador_keyboard())
 
-    elif text == "🎁 VIP 40j (4000 pts)":
-        ok, msg = redeem_points(user_id, 40)
-        await update.message.reply_text(msg, reply_markup=ambassador_keyboard())
-
-    elif text == "💸 Demander paiement":
+    elif text == "💸 Retirer ma prime":
         amb = get_ambassador(user_id)
         commission = amb[3] if amb else 0
-        if commission < MIN_WITHDRAWAL:
+        min_withdrawal = amb_setting("amb_min_withdrawal")
+        if commission < min_withdrawal:
             await update.message.reply_text(
                 f"💰 Ton solde est de {commission} FCFA.\n"
-                f"Le retrait minimum est de {MIN_WITHDRAWAL} FCFA."
+                f"Le retrait minimum est de {min_withdrawal} FCFA."
             )
             return
         user_state[user_id] = {"action": "withdraw_amount"}
         await update.message.reply_text(
-            f"💰 Solde disponible : {commission} FCFA\n\n💸 Envoie le montant que tu souhaites retirer :"
+            "💰 DEMANDE DE PAIEMENT\n\n"
+            f"Commission disponible : {commission} FCFA\n"
+            f"Montant minimum : {min_withdrawal} FCFA\n\n"
+            "Envoie le montant que tu souhaites retirer :"
         )
 
+    elif text == "📜 Historique des paiements":
+        historique = get_user_withdrawals(user_id)
+        if not historique:
+            await update.message.reply_text("📜 Aucun paiement pour le moment.")
+            return
+        icons = {"payée": "✅", "en_attente": "⏳", "refusée": "❌"}
+        lines = ["📜 HISTORIQUE DE MES PAIEMENTS\n"]
+        for wid, montant, statut, date, paid_at in historique:
+            icon = icons.get(statut, "•")
+            if statut == "payée":
+                lines.append(f"{icon} {montant} FCFA\nPayé le {paid_at}\n")
+            elif statut == "refusée":
+                lines.append(f"{icon} {montant} FCFA\nRefusé\n")
+            else:
+                lines.append(f"{icon} {montant} FCFA\nEn attente\n")
+        await update.message.reply_text("\n".join(lines))
+
     elif user_id in user_state and user_state[user_id].get("action") == "withdraw_amount":
-        clear_state_action = user_state.pop(user_id, None)
         try:
             montant = int(text.strip())
         except ValueError:
             await update.message.reply_text("❌ Montant invalide. Réessaie avec un nombre.")
             return
 
-        ok, result = request_withdrawal(user_id, montant)
+        amb = get_ambassador(user_id)
+        min_withdrawal = amb_setting("amb_min_withdrawal")
+        if montant < min_withdrawal:
+            await update.message.reply_text(f"❌ Le retrait minimum est de {min_withdrawal} FCFA.")
+            return
+        if amb and montant > amb[3]:
+            await update.message.reply_text(f"❌ Solde insuffisant. Ton solde est de {amb[3]} FCFA.")
+            return
+
+        user_state[user_id] = {"action": "withdraw_wave_number", "montant": montant}
+        await update.message.reply_text("📱 Envoie ton numéro Wave pour recevoir ton paiement :")
+
+    elif user_id in user_state and user_state[user_id].get("action") == "withdraw_wave_number":
+        montant = user_state[user_id].get("montant")
+        wave_number = text.strip()
+        user_state.pop(user_id, None)
+
+        ok, result = request_withdrawal(user_id, montant, wave_number)
         if not ok:
             await update.message.reply_text(result, reply_markup=ambassador_keyboard())
             return
@@ -1123,18 +1381,21 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
         wid = result
         amb = get_ambassador(user_id)
         await update.message.reply_text(
-            f"✅ Demande de retrait envoyée (#{wid}). Traitement sous 24h.",
+            f"✅ Demande de paiement envoyée (#{wid}). Traitement sous 24h.",
             reply_markup=ambassador_keyboard(),
         )
         kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton("✅ Accepter", callback_data=f"wd:accept:{wid}"),
-             InlineKeyboardButton("❌ Refuser", callback_data=f"wd:refuse:{wid}"),
-             InlineKeyboardButton("💸 Marquer payé", callback_data=f"wd:paid:{wid}")]
+            [InlineKeyboardButton("✅ Paiement effectué", callback_data=f"wd:paid:{wid}"),
+             InlineKeyboardButton("❌ Refuser", callback_data=f"wd:refuse:{wid}")]
         ])
         await context.bot.send_message(
             ADMIN_ID,
-            f"💸 Demande de retrait #{wid}\n\n👤 Utilisateur : {user_id}\n💰 Montant demandé : {montant} FCFA\n"
-            f"💼 Solde disponible : {amb[3]} FCFA",
+            "💸 Nouvelle demande de retrait\n\n"
+            f"👤 Utilisateur : {user_id}\n"
+            f"💰 Montant : {montant} FCFA\n"
+            f"📱 Numéro Wave : {wave_number}\n"
+            f"💼 Solde disponible : {amb[3]} FCFA\n"
+            f"📅 Date : {datetime.now().strftime(DATE_FMT)}",
             reply_markup=kb,
         )
 
@@ -1251,33 +1512,34 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.edit_message_text("⚠️ Demande introuvable.")
             return
 
-        _, uid, montant, statut, date = wd
+        _, uid, montant, statut, date, wave_number, paid_at = wd
 
         if statut != "en_attente":
             await query.edit_message_text(f"⚠️ Demande déjà traitée ({statut}).")
             return
 
-        if wd_action == "accept":
-            update_withdrawal_status(wid, "acceptée")
-            result_text = f"✅ Demande #{wid} acceptée — {montant} FCFA pour {uid}\n📌 N'oublie pas d'envoyer le paiement Wave puis de la marquer comme payée."
-            try:
-                await context.bot.send_message(uid, f"✅ Ta demande de retrait de {montant} FCFA a été acceptée. Paiement sous 24h.")
-            except Exception:
-                pass
-
-        elif wd_action == "refuse":
+        if wd_action == "refuse":
             update_withdrawal_status(wid, "refusée")
             result_text = f"❌ Demande #{wid} refusée — {montant} FCFA pour {uid}"
             try:
-                await context.bot.send_message(uid, f"❌ Ta demande de retrait de {montant} FCFA a été refusée. Contacte l'admin pour plus d'infos.")
+                await context.bot.send_message(uid, f"❌ Ta demande de paiement de {montant} FCFA a été refusée. Contacte l'admin pour plus d'infos.")
             except Exception:
                 pass
 
         else:  # paid
             update_withdrawal_status(wid, "payée", deduct_on_paid=True)
-            result_text = f"💸 Demande #{wid} marquée comme PAYÉE — {montant} FCFA pour {uid}"
+            result_text = f"✅ Demande #{wid} marquée comme PAYÉE — {montant} FCFA pour {uid} (Wave : {wave_number})"
             try:
-                await context.bot.send_message(uid, f"💸 Ton retrait de {montant} FCFA vient d'être payé via Wave. Merci !")
+                await context.bot.send_message(
+                    uid,
+                    "🎉 Paiement validé !\n\n"
+                    "Bonjour 👋\n\n"
+                    f"Ta demande de paiement de {montant} FCFA a été traitée avec succès.\n\n"
+                    f"💰 Montant payé :\n{montant} FCFA\n\n"
+                    "📱 Mode :\nWave\n\n"
+                    "Merci pour ton implication dans le Club Ambassadeur Coupon VIP ⭐\n\n"
+                    "Continue à développer ton réseau pour gagner encore plus de récompenses.",
+                )
             except Exception:
                 pass
 
