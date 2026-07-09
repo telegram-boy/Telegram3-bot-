@@ -191,14 +191,14 @@ AMBASSADOR_DEFAULTS = {
     "amb_signup_points": 10,
     "amb_l1_vip7_points": 100,
     "amb_l1_vip7_commission": 150,
-    "amb_l1_vip40_points": 250,
-    "amb_l1_vip40_commission": 300,
+    "amb_l1_vip30_points": 250,
+    "amb_l1_vip30_commission": 300,
     "amb_l2_vip7_points": 20,
-    "amb_l2_vip40_points": 50,
+    "amb_l2_vip30_points": 50,
     "amb_personal_vip7_points": 20,
-    "amb_personal_vip40_points": 45,
+    "amb_personal_vip30_points": 45,
     "amb_redeem_vip7_points": 1000,
-    "amb_redeem_vip40_points": 4000,
+    "amb_redeem_vip30_points": 4000,
     "amb_min_withdrawal": 500,
 }
 for _k, _v in AMBASSADOR_DEFAULTS.items():
@@ -472,17 +472,17 @@ def count_vip_niveau2(parrain_uid):
 
 def credit_purchase_rewards(buyer_uid, days):
     """À appeler quand un paiement VIP est validé. Crédite le filleul + parrains N1/N2."""
-    tier = 7 if days <= 7 else 40
+    tier = 7 if days <= 7 else 30
     if tier == 7:
         pts_personal = amb_setting("amb_personal_vip7_points")
         pts_l1 = amb_setting("amb_l1_vip7_points")
         commission_l1 = amb_setting("amb_l1_vip7_commission")
         pts_l2 = amb_setting("amb_l2_vip7_points")
     else:
-        pts_personal = amb_setting("amb_personal_vip40_points")
-        pts_l1 = amb_setting("amb_l1_vip40_points")
-        commission_l1 = amb_setting("amb_l1_vip40_commission")
-        pts_l2 = amb_setting("amb_l2_vip40_points")
+        pts_personal = amb_setting("amb_personal_vip30_points")
+        pts_l1 = amb_setting("amb_l1_vip30_points")
+        commission_l1 = amb_setting("amb_l1_vip30_commission")
+        pts_l2 = amb_setting("amb_l2_vip30_points")
 
     ensure_ambassador(buyer_uid)
     add_points(buyer_uid, pts_personal, f"Bonus abonnement personnel VIP {tier}j")
@@ -526,7 +526,7 @@ def redeem_points(uid, days):
     if ambassador[4]:  # blocked
         return False, "❌ Ton compte ambassadeur est bloqué."
 
-    cost = amb_setting("amb_redeem_vip7_points") if days == 7 else amb_setting("amb_redeem_vip40_points")
+    cost = amb_setting("amb_redeem_vip7_points") if days == 7 else amb_setting("amb_redeem_vip30_points")
     points = ambassador[2]
     if points < cost:
         return False, f"❌ Points insuffisants. Il te faut {cost} points (tu as {points})."
@@ -698,10 +698,12 @@ def keyboard():
         ["💎 Coupon VIP"],
         ["🔥 Pourquoi devenir VIP ?"],
         ["🌟 CLUB AMBASSADEUR"],
+        ["📖 Comment marche le Club Ambassadeur ?"],
         ["💳 Abonnement"],
         ["✅ J'ai payé"],
         ["🆔 Mon ID"],
         ["📞 Contact Admin"],
+        ["🔄 Actualiser mon menu"],
     ], resize_keyboard=True)
 
 
@@ -755,6 +757,7 @@ USER_BUTTONS = {
     "💳 Abonnement", "✅ J'ai payé", "🆔 Mon ID", "📞 Contact Admin",
     "🌟 CLUB AMBASSADEUR", "📊 Voir mes filleuls", "🎁 Échanger mes points",
     "💸 Retirer ma prime", "📜 Historique des paiements", "⬅️ Retour au menu",
+    "📖 Comment marche le Club Ambassadeur ?", "🔄 Actualiser mon menu",
 }
 
 
@@ -853,7 +856,7 @@ async def process_admin_state(update: Update, context: ContextTypes.DEFAULT_TYPE
                 pass
 
         elif action == "vip30":
-            expires = add_vip(uid, 40)
+            expires = add_vip(uid, 30)
             await update.message.reply_text(
                 f"✅ VIP 30 jours ajouté pour {uid} (expire le {expires.strftime(DATE_FMT)})",
                 reply_markup=admin_keyboard(),
@@ -861,7 +864,7 @@ async def process_admin_state(update: Update, context: ContextTypes.DEFAULT_TYPE
             try:
                 await context.bot.send_message(
                     uid,
-                    "🎉 Félicitations 🎉\n\nVIP activé : 40 jours\n💎 Profite de tes coupons VIP",
+                    "🎉 Félicitations 🎉\n\nVIP activé : 30 jours\n💎 Profite de tes coupons VIP",
                 )
             except Exception:
                 pass
@@ -888,11 +891,11 @@ async def process_admin_state(update: Update, context: ContextTypes.DEFAULT_TYPE
         if len(parts) != 7 or not all(p.lstrip("-").isdigit() for p in parts):
             await update.message.reply_text(
                 "❌ Format invalide. Envoie 7 nombres séparés par des espaces, dans l'ordre :\n"
-                "Inscription N1_VIP7 N1_VIP40 N2_VIP7 N2_VIP40 Bonus_perso_VIP7 Bonus_perso_VIP40"
+                "Inscription N1_VIP7 N1_VIP30 N2_VIP7 N2_VIP30 Bonus_perso_VIP7 Bonus_perso_VIP30"
             )
             return True
         keys = [
-            "amb_signup_points", "amb_l1_vip7_points", "amb_l1_vip40_points",
+            "amb_signup_points", "amb_l1_vip7_points", "amb_l1_vip30_points",
             "amb_l2_vip7_points", "amb_l2_vip30_points",
             "amb_personal_vip7_points", "amb_personal_vip30_points",
         ]
@@ -903,7 +906,7 @@ async def process_admin_state(update: Update, context: ContextTypes.DEFAULT_TYPE
     elif action == "set_commissions":
         parts = text.strip().split()
         if len(parts) != 2 or not all(p.lstrip("-").isdigit() for p in parts):
-            await update.message.reply_text("❌ Format invalide. Envoie 2 nombres : Commission_VIP7 Commission_VIP40")
+            await update.message.reply_text("❌ Format invalide. Envoie 2 nombres : Commission_VIP7 Commission_VIP30")
             return True
         set_setting("amb_l1_vip7_commission", parts[0])
         set_setting("amb_l1_vip30_commission", parts[1])
@@ -912,7 +915,7 @@ async def process_admin_state(update: Update, context: ContextTypes.DEFAULT_TYPE
     elif action == "set_redeem_thresholds":
         parts = text.strip().split()
         if len(parts) != 2 or not all(p.lstrip("-").isdigit() for p in parts):
-            await update.message.reply_text("❌ Format invalide. Envoie 2 nombres : Points_pour_VIP7 Points_pour_VIP40")
+            await update.message.reply_text("❌ Format invalide. Envoie 2 nombres : Points_pour_VIP7 Points_pour_VIP30")
             return True
         set_setting("amb_redeem_vip7_points", parts[0])
         set_setting("amb_redeem_vip30_points", parts[1])
@@ -1014,7 +1017,7 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         elif text == "➕ Ajouter VIP 30 jours":
             admin_state[user_id] = {"action": "vip30"}
-            await update.message.reply_text("🆔 Envoie l'ID Telegram de l'utilisateur à passer VIP 40 jours :")
+            await update.message.reply_text("🆔 Envoie l'ID Telegram de l'utilisateur à passer VIP 30 jours :")
             return
 
         elif text == "❌ Retirer VIP":
@@ -1114,11 +1117,11 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(
                 "⭐ RÉCOMPENSES EN POINTS\n\n"
                 "Envoie les 6 valeurs dans cet ordre, séparées par des espaces :\n"
-                "Inscription | N1_VIP7 | N1_VIP30 | N2_VIP7 | N2_VIP30 | Bonus_perso_VIP7 | Bonus_perso_VIP40\n\n"
+                "Inscription | N1_VIP7 | N1_VIP30 | N2_VIP7 | N2_VIP30 | Bonus_perso_VIP7 | Bonus_perso_VIP30\n\n"
                 f"Valeurs actuelles :\n{amb_setting('amb_signup_points')} {amb_setting('amb_l1_vip7_points')} "
                 f"{amb_setting('amb_l1_vip30_points')} {amb_setting('amb_l2_vip7_points')} "
                 f"{amb_setting('amb_l2_vip30_points')} {amb_setting('amb_personal_vip7_points')} "
-                f"{amb_setting('amb_personal_vip40_points')}\n\n"
+                f"{amb_setting('amb_personal_vip30_points')}\n\n"
                 "⚠️ Ce sont 7 valeurs à envoyer, dans cet ordre exact."
             )
             return
@@ -1128,7 +1131,7 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(
                 "💵 COMMISSIONS (FCFA)\n\n"
                 "Envoie les 2 valeurs séparées par un espace : Commission_VIP7 Commission_VIP30\n\n"
-                f"Valeurs actuelles : {amb_setting('amb_l1_vip7_commission')} {amb_setting('amb_l1_vip40_commission')}"
+                f"Valeurs actuelles : {amb_setting('amb_l1_vip7_commission')} {amb_setting('amb_l1_vip30_commission')}"
             )
             return
 
@@ -1137,7 +1140,7 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(
                 "🎁 SEUILS DE CONVERSION POINTS → VIP GRATUIT\n\n"
                 "Envoie les 2 valeurs séparées par un espace : Points_pour_VIP7 Points_pour_VIP30\n\n"
-                f"Valeurs actuelles : {amb_setting('amb_redeem_vip7_points')} {amb_setting('amb_redeem_vip40_points')}"
+                f"Valeurs actuelles : {amb_setting('amb_redeem_vip7_points')} {amb_setting('amb_redeem_vip30_points')}"
             )
             return
 
@@ -1207,7 +1210,7 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         kb = InlineKeyboardMarkup([
             [InlineKeyboardButton("✅ VIP 7j", callback_data=f"pv7:{pid}"),
-             InlineKeyboardButton("✅ VIP 40j", callback_data=f"pv40:{pid}"),
+             InlineKeyboardButton("✅ VIP 30j", callback_data=f"pv30:{pid}"),
              InlineKeyboardButton("❌ Refuser", callback_data=f"pvref:{pid}")]
         ])
         await context.bot.send_message(
@@ -1223,9 +1226,36 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
         pay_number = get_setting("pay_number")
         await update.message.reply_text(f"📞 Admin : @HardingMichelle\n💰 {pay_number}")
 
+    elif text == "🔄 Actualiser mon menu":
+        await update.message.reply_text(
+            "🔄 Ton menu a été actualisé ! Tu as maintenant accès aux dernières nouveautés 👇",
+            reply_markup=keyboard(),
+        )
+
     # =========================
     # 🌟 CLUB AMBASSADEUR
     # =========================
+
+    elif text == "📖 Comment marche le Club Ambassadeur ?":
+        await update.message.reply_text(
+            "📖 CLUB AMBASSADEUR — COMMENT ÇA MARCHE ?\n\n"
+            "🌟 CLUB AMBASSADEUR te permet de gagner des points et de l'argent "
+            "en invitant d'autres personnes sur COUPON VIP.\n\n"
+            "1️⃣ Récupère ton lien personnel dans 🌟 CLUB AMBASSADEUR.\n\n"
+            "2️⃣ Partage-le. Chaque personne qui rejoint via ton lien devient ton filleul.\n"
+            f"   ⭐ +{amb_setting('amb_signup_points')} points dès son inscription.\n\n"
+            "3️⃣ Si ton filleul prend un abonnement VIP, tu gagnes encore plus :\n"
+            f"   • VIP 7 jours → ⭐ {amb_setting('amb_l1_vip7_points')} points + 💰 {amb_setting('amb_l1_vip7_commission')} FCFA\n"
+            f"   • VIP 30 jours → ⭐ {amb_setting('amb_l1_vip30_points')} points + 💰 {amb_setting('amb_l1_vip30_commission')} FCFA\n\n"
+            "4️⃣ Même si ton filleul invite quelqu'un d'autre (niveau 2), tu touches "
+            "encore des points (sans commission à ce niveau).\n\n"
+            "⭐ Les points servent à obtenir un VIP gratuit :\n"
+            f"   • {amb_setting('amb_redeem_vip7_points')} points → VIP 7 jours gratuit\n"
+            f"   • {amb_setting('amb_redeem_vip30_points')} points → VIP 30 jours gratuit\n\n"
+            "💰 Les commissions se retirent en FCFA via Wave "
+            f"(minimum {amb_setting('amb_min_withdrawal')} FCFA).\n\n"
+            "👉 Clique sur 🌟 CLUB AMBASSADEUR pour voir ton code, ton lien et ton solde !"
+        )
 
     elif text == "🌟 CLUB AMBASSADEUR":
         ensure_ambassador(user_id)
@@ -1279,7 +1309,7 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
         amb = get_ambassador(user_id)
         points = amb[2] if amb else 0
         cost7 = amb_setting("amb_redeem_vip7_points")
-        cost40 = amb_setting("amb_redeem_vip40_points")
+        cost40 = amb_setting("amb_redeem_vip30_points")
         kb = ReplyKeyboardMarkup([
             [f"🎁 VIP 7j ({cost7} pts)"],
             [f"🎁 VIP 30j ({cost40} pts)"],
@@ -1391,6 +1421,21 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=kb,
         )
 
+    else:
+        # Texte non reconnu : probablement un ancien bouton mis en cache sur le
+        # téléphone de l'utilisateur (clavier pas encore rafraîchi après un déploiement).
+        # On renvoie le menu à jour au lieu de rester silencieux.
+        if user_id == ADMIN_ID:
+            await update.message.reply_text(
+                "🔄 Menu mis à jour ! Utilise les boutons ci-dessous 👇",
+                reply_markup=admin_keyboard(),
+            )
+        else:
+            await update.message.reply_text(
+                "🔄 Menu mis à jour ! Utilise les boutons ci-dessous 👇",
+                reply_markup=keyboard(),
+            )
+
 
 # =========================
 # 📸 PHOTO (PAIEMENT)
@@ -1408,7 +1453,7 @@ async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     kb = InlineKeyboardMarkup([
         [InlineKeyboardButton("✅ VIP 7j", callback_data=f"pv7:{pid}"),
-         InlineKeyboardButton("✅ VIP 30j", callback_data=f"pv40:{pid}"),
+         InlineKeyboardButton("✅ VIP 30j", callback_data=f"pv30:{pid}"),
          InlineKeyboardButton("❌ Refuser", callback_data=f"pvref:{pid}")]
     ])
 
@@ -1436,7 +1481,7 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = query.data
 
     # ---- Paiements ----
-    if data.startswith("pv7:") or data.startswith("pv40:") or data.startswith("pvref:"):
+    if data.startswith("pv7:") or data.startswith("pv30:") or data.startswith("pvref:"):
         action, pid_str = data.split(":")
         pid = int(pid_str)
         payment = get_payment(pid)
@@ -1466,15 +1511,15 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 except Exception:
                     pass
 
-        elif action == "pv40":
-            expires = add_vip(uid, 40)
+        elif action == "pv30":
+            expires = add_vip(uid, 30)
             update_payment_status(pid, "validé")
-            result_text = f"✅ Paiement #{pid} validé — VIP 40 jours pour {uid} (expire {expires.strftime(DATE_FMT)})"
+            result_text = f"✅ Paiement #{pid} validé — VIP 30 jours pour {uid} (expire {expires.strftime(DATE_FMT)})"
             try:
-                await context.bot.send_message(uid, "🎉 Félicitations 🎉\n\nVIP activé : 40 jours\n💎 Profite de tes coupons VIP")
+                await context.bot.send_message(uid, "🎉 Félicitations 🎉\n\nVIP activé : 30 jours\n💎 Profite de tes coupons VIP")
             except Exception:
                 pass
-            for notify_uid, notify_text in credit_purchase_rewards(uid, 40):
+            for notify_uid, notify_text in credit_purchase_rewards(uid, 30):
                 try:
                     await context.bot.send_message(notify_uid, notify_text)
                 except Exception:
@@ -1485,6 +1530,11 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             result_text = f"❌ Paiement #{pid} refusé pour {uid}"
             try:
                 await context.bot.send_message(uid, "❌ Ton paiement n'a pas pu être validé. Contacte l'admin pour plus d'infos.")
+                await context.bot.send_message(
+                    uid,
+                    "En attendant, profite quand même de nos 🎫 coupons gratuits et de nos "
+                    "coupons flash ⚡ disponibles régulièrement !"
+                )
             except Exception:
                 pass
 
@@ -1638,6 +1688,20 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # 🚀 LANCEMENT DU BOT
 # =========================
 
+async def error_handler(update, context):
+    """Log toute exception dans les logs Railway au lieu de l'avaler silencieusement."""
+    import traceback
+    print("⚠️ ERREUR NON GÉRÉE :")
+    traceback.print_exception(type(context.error), context.error, context.error.__traceback__)
+    if update and hasattr(update, "message") and update.message:
+        try:
+            await update.message.reply_text(
+                "⚠️ Une erreur est survenue pendant le traitement de ta demande. Réessaie ou contacte le support."
+            )
+        except Exception:
+            pass
+
+
 app = ApplicationBuilder().token(TOKEN).build()
 
 app.add_handler(CommandHandler("start", start))
@@ -1645,6 +1709,7 @@ app.add_handler(CommandHandler("stats", stats))
 app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle))
 app.add_handler(MessageHandler(filters.PHOTO, photo_handler))
 app.add_handler(CallbackQueryHandler(callback_handler))
+app.add_error_handler(error_handler)
 
 print("🤖 BOT VIP OK (SQLite + panneau admin)")
 app.run_polling()
