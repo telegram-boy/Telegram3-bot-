@@ -49,7 +49,6 @@ DEFAULT_COUPON_VIP = """💎 COUPON VIP
 🔥 Probabilité : x
 🍀 Good luck"""
 
-DEFAULT_PAY_NUMBER = "+2250789247884"
 
 # =========================
 # 🗄️ BASE DE DONNÉES
@@ -139,6 +138,17 @@ CREATE TABLE IF NOT EXISTS ambassador_sales (
     tier INTEGER,
     date TEXT
 );
+
+CREATE TABLE IF NOT EXISTS subscription_requests (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER,
+    tier INTEGER,
+    status TEXT DEFAULT 'attente_lien',
+    requested_at TEXT,
+    link TEXT,
+    link_sent_at TEXT,
+    expires_at TEXT
+);
 """)
 conn.commit()
 
@@ -183,8 +193,6 @@ if get_setting("coupon_free") is None:
     set_setting("coupon_free", DEFAULT_COUPON_FREE)
 if get_setting("coupon_vip") is None:
     set_setting("coupon_vip", DEFAULT_COUPON_VIP)
-if get_setting("pay_number") is None:
-    set_setting("pay_number", DEFAULT_PAY_NUMBER)
 
 # Paramètres ambassadeur par défaut (modifiables ensuite depuis Telegram, sans toucher au code)
 AMBASSADOR_DEFAULTS = {
@@ -612,6 +620,52 @@ def total_paiements_effectues():
     return cur.fetchone()[0]
 
 
+# =========================
+# 🔗 DEMANDES D'ABONNEMENT (lien Wave sécurisé et temporaire)
+# =========================
+
+LINK_VALIDITY_HOURS = 4
+
+
+def create_subscription_request(uid, tier):
+    now = datetime.now().strftime(DATE_FMT)
+    cur.execute(
+        "INSERT INTO subscription_requests (user_id, tier, status, requested_at) VALUES (?, ?, 'attente_lien', ?)",
+        (uid, tier, now),
+    )
+    conn.commit()
+    return cur.lastrowid
+
+
+def get_subscription_request(rid):
+    cur.execute(
+        "SELECT id, user_id, tier, status, requested_at, link, link_sent_at, expires_at "
+        "FROM subscription_requests WHERE id = ?",
+        (rid,),
+    )
+    return cur.fetchone()
+
+
+def set_subscription_link(rid, link):
+    now = datetime.now()
+    expires = now + timedelta(hours=LINK_VALIDITY_HOURS)
+    cur.execute(
+        "UPDATE subscription_requests SET link = ?, link_sent_at = ?, expires_at = ?, status = 'lien_envoyé' "
+        "WHERE id = ?",
+        (link, now.strftime(DATE_FMT), expires.strftime(DATE_FMT), rid),
+    )
+    conn.commit()
+    return expires
+
+
+def get_pending_subscription_requests():
+    cur.execute(
+        "SELECT id, user_id, tier, requested_at FROM subscription_requests "
+        "WHERE status = 'attente_lien' ORDER BY requested_at ASC"
+    )
+    return cur.fetchall()
+
+
 def list_ambassadors(limit=30):
     cur.execute(
         "SELECT user_id, code, points, commission, blocked FROM ambassadors "
@@ -733,7 +787,7 @@ def admin_keyboard():
         ["👑 Liste VIP", "💰 Paiements"],
         ["🎫 Modifier Coupon Gratuit", "💎 Modifier Coupon VIP"],
         ["➕ Ajouter VIP 7 jours", "➕ Ajouter VIP 30 jours"],
-        ["❌ Retirer VIP", "📱 Modifier Numéro"],
+        ["❌ Retirer VIP", "🔗 Demandes d'abonnement"],
         ["📢 Message Tous", "💎 Message VIP"],
         ["🌟 Ambassadeurs", "🏆 Classement"],
         ["💸 Demandes paiement ambassadeurs"],
@@ -746,7 +800,7 @@ ADMIN_BUTTONS = {
     "📊 Statistiques", "👥 Utilisateurs", "👑 Liste VIP", "💰 Paiements",
     "🎫 Modifier Coupon Gratuit", "💎 Modifier Coupon VIP",
     "➕ Ajouter VIP 7 jours", "➕ Ajouter VIP 30 jours", "❌ Retirer VIP",
-    "📱 Modifier Numéro", "📢 Message Tous", "💎 Message VIP", "🔄 Actualiser",
+    "🔗 Demandes d'abonnement", "📢 Message Tous", "💎 Message VIP", "🔄 Actualiser",
     "🌟 Ambassadeurs", "🏆 Classement", "💸 Demandes paiement ambassadeurs",
     "⚙️ Param. Ambassadeur", "💰 Retrait Min", "⭐ Récompenses Points",
     "💵 Commissions", "🎁 Récompenses VIP (points)", "⬅️ Retour Admin",
@@ -830,9 +884,35 @@ async def process_admin_state(update: Update, context: ContextTypes.DEFAULT_TYPE
         set_setting("coupon_vip", text)
         await update.message.reply_text("✅ Coupon VIP mis à jour avec succès.", reply_markup=admin_keyboard())
 
-    elif action == "pay_number":
-        set_setting("pay_number", text.strip())
-        await update.message.reply_text("✅ Numéro de paiement mis à jour.", reply_markup=admin_keyboard())
+    elif action == "send_wave_link":
+        rid = state.get("rid")
+        req = get_subscription_request(rid)
+        if not req:
+            await update.message.reply_text("⚠️ Demande introuvable (peut-être déjà traitée).")
+            return True
+
+        _, req_uid, tier, status, requested_at, _, _, _ = req
+        if status != "attente_lien":
+            await update.message.reply_text(f"⚠️ Cette demande a déjà un lien envoyé ({status}).")
+            return True
+
+        link = text.strip()
+        expires = set_subscription_link(rid, link)
+
+        await update.message.reply_text(
+            f"✅ Lien envoyé à {req_uid} pour VIP {tier}j (valable jusqu'à {expires.strftime(DATE_FMT)}).",
+            reply_markup=admin_keyboard(),
+        )
+        try:
+            await context.bot.send_message(
+                req_uid,
+                f"💳 Voici ton lien de paiement Wave pour ton abonnement VIP {tier} jours :\n\n"
+                f"{link}\n\n"
+                f"⏳ Ce lien est valable 4 heures (jusqu'à {expires.strftime(DATE_FMT)}).\n\n"
+                "Une fois le paiement effectué, reviens et clique sur ✅ J'ai payé pour confirmer.",
+            )
+        except Exception:
+            pass
 
     elif action in ("vip7", "vip30", "vip_remove"):
         try:
@@ -1025,12 +1105,16 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("🆔 Envoie l'ID Telegram de l'utilisateur à retirer des VIP :")
             return
 
-        elif text == "📱 Modifier Numéro":
-            admin_state[user_id] = {"action": "pay_number"}
-            current = get_setting("pay_number")
-            await update.message.reply_text(
-                f"📱 Numéro actuel : {current}\n\nEnvoie le nouveau numéro Wave / Orange Money :"
-            )
+        elif text == "🔗 Demandes d'abonnement":
+            pending = get_pending_subscription_requests()
+            if not pending:
+                await update.message.reply_text("Aucune demande d'abonnement en attente de lien.")
+                return
+            lines = ["🔗 DEMANDES EN ATTENTE DE LIEN\n"]
+            for rid, uid, tier, requested_at in pending:
+                lines.append(f"#{rid} | 🆔 {uid} | VIP {tier}j | {requested_at}")
+            lines.append("\n👉 Utilise le bouton envoyé au moment de chaque demande pour lui coller son lien Wave.")
+            await update.message.reply_text("\n".join(lines))
             return
 
         elif text == "📢 Message Tous":
@@ -1167,7 +1251,6 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("❌ Accès VIP refusé")
 
     elif text == "🔥 Pourquoi devenir VIP ?":
-        pay_number = get_setting("pay_number")
         await update.message.reply_text(
             "🔥 POURQUOI DEVENIR VIP ? 💎\n\n"
             "✅ Les meilleures cotes, sélectionnées avec soin\n"
@@ -1177,24 +1260,23 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "💳 TARIFS\n"
             "🗓️ Semaine : 1 500 XOF (7 jours)\n"
             "📅 Mois : 2 500 XOF (30 jours)\n\n"
-            f"💰 Paiement Wave / Orange Money : {pay_number}\n\n"
             "👉 Clique sur 💳 Abonnement pour souscrire dès maintenant !"
         )
 
     elif text == "💳 Abonnement":
-        pay_number = get_setting("pay_number")
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🗓️ VIP 7 jours — 1 500 XOF", callback_data="sub:7")],
+            [InlineKeyboardButton("📅 VIP 30 jours — 2 500 XOF", callback_data="sub:30")],
+        ])
         await update.message.reply_text(
             "💳 ABONNEMENT VIP\n\n"
             "🗓️ Semaine : 1 500 XOF (7 jours)\n"
             "📅 Mois : 2 500 XOF (30 jours)\n\n"
-            "💰 Wave / Orange Money\n"
-            f"📞 Numéro : {pay_number}\n\n"
-            "⚠️ Paiement non remboursable\n"
-            "📌 Validation manuelle par admin\n\n"
-            "📸 Étapes :\n"
-            "1️⃣ ID Telegram\n"
-            "2️⃣ Capture paiement\n"
-            "3️⃣ Envoyé dans notre conversation"
+            "🔒 Paiement sécurisé par lien Wave personnel\n"
+            "⚠️ Paiement non remboursable\n\n"
+            "👉 Choisis ton offre ci-dessous, un administrateur t'enverra "
+            "un lien de paiement Wave valable 4 heures :",
+            reply_markup=kb,
         )
 
     elif text == "✅ J'ai payé":
@@ -1223,8 +1305,7 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"🆔 Ton ID : {user_id}")
 
     elif text == "📞 Contact Admin":
-        pay_number = get_setting("pay_number")
-        await update.message.reply_text(f"📞 Admin : @HardingMichelle\n💰 {pay_number}")
+        await update.message.reply_text("📞 Admin : @HardingMichelle")
 
     elif text == "🔄 Actualiser mon menu":
         await update.message.reply_text(
@@ -1475,10 +1556,54 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
+    data = query.data
+
+    # ---- Demande d'abonnement (déclenchée par le CLIENT, pas l'admin) ----
+    if data.startswith("sub:"):
+        tier = int(data.split(":")[1])
+        uid = query.from_user.id
+        rid = create_subscription_request(uid, tier)
+
+        await query.edit_message_text(
+            f"✅ Demande envoyée pour VIP {tier} jours !\n\n"
+            "Un administrateur va te contacter avec un lien de paiement Wave sécurisé, "
+            "valable 4 heures."
+        )
+
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("📩 Envoyer le lien Wave", callback_data=f"sendlink:{rid}")]
+        ])
+        await context.bot.send_message(
+            ADMIN_ID,
+            f"🔗 Nouvelle demande d'abonnement (#{rid})\n\n"
+            f"👤 Utilisateur : {uid}\n"
+            f"📅 Offre : VIP {tier} jours\n\n"
+            "🔎 Génère un lien Wave (valable 4h) et envoie-le via le bouton ci-dessous.",
+            reply_markup=kb,
+        )
+        return
+
     if query.from_user.id != ADMIN_ID:
         return
 
-    data = query.data
+    # ---- Demande d'envoi de lien Wave (admin) ----
+    if data.startswith("sendlink:"):
+        rid = int(data.split(":")[1])
+        req = get_subscription_request(rid)
+        if not req:
+            await query.edit_message_text("⚠️ Demande introuvable.")
+            return
+        _, req_uid, tier, status, requested_at, _, _, _ = req
+        if status != "attente_lien":
+            await query.edit_message_text(f"⚠️ Cette demande a déjà un lien envoyé ({status}).")
+            return
+
+        admin_state[ADMIN_ID] = {"action": "send_wave_link", "rid": rid}
+        await query.edit_message_text(
+            f"🔗 Demande #{rid} — Utilisateur {req_uid} — VIP {tier}j\n\n"
+            "Colle maintenant le lien Wave à lui envoyer (il sera valable 4h) :"
+        )
+        return
 
     # ---- Paiements ----
     if data.startswith("pv7:") or data.startswith("pv30:") or data.startswith("pvref:"):
